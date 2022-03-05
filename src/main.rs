@@ -22,10 +22,22 @@ struct TriangleApp {
 
 impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
-        let sim = Simulation::new(150, 150);
-
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
+
+        let mut sim = Simulation::new(150, 150);
+
+        let d = sim.density_mut();
+        let height = d.height();
+        let width = d.width();
+        d[(width / 2, height / 2)] = 1.;
+        /*
+        for j in (0..height).step_by(width / 8) {
+            for i in 0..width {
+                d[(i, j)] = 0.1;
+            }
+        }
+        */
 
         //draw_density(&mut tri_gb, sim.density());
         draw_velocity_squares(&mut tri_gb, sim.uv());
@@ -64,22 +76,28 @@ impl App for TriangleApp {
         //let (u, v) = self.sim.uv_mut();
         //draw_velocity_squares(&mut self.tri_gb, (u, v));
 
-        //ctx.update_indices(&self.tri_gb.indices);
+
+        let time = ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.sim.density_mut();
         let center = (d.width() / 2, d.height() / 2);
-        d[center] = 8.;
-
-        let (u, v) = self.sim.uv_mut();
-        let time = ctx.start_time().elapsed().as_secs_f32();
         let x = center.0 as f32 * (time.cos() + 1.);
+
+        //d[(center.1, x as usize)] = 1.;
+        let (u, v) = self.sim.uv_mut();
+
         u[(x as usize, center.1)] = -10.;
         v[(x as usize, center.1)] = -10.;
 
-        self.sim.step(0.1, 0., 0.);
+        self.sim.step(0.1, 0.0, 0.);
 
         draw_density(&mut self.tri_gb, self.sim.density());
+
+        //let (u, v) = self.sim.uv_mut();
+        //draw_velocity_squares(&mut self.tri_gb, (u, v));
+
         //draw_velocity_squares(&mut self.tri_gb, self.sim.uv());
+
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
 
         Ok(vec![

@@ -7,7 +7,7 @@ fn add_source(x: &mut Array2D, s: &Array2D, dt: f32) {
     x.data_mut()
         .iter_mut()
         .zip(s.data())
-        .for_each(|(x, s)| *x = *s * dt);
+        .for_each(|(x, s)| *x += *s * dt);
 }
 
 fn inner_size(x: &Array2D) -> (usize, usize) {
