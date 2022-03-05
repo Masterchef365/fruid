@@ -25,12 +25,12 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = Simulation::new(150, 150);
+        let mut sim = Simulation::new(200, 200);
 
         let d = sim.density_mut();
         let height = d.height();
         let width = d.width();
-        d[(width / 2, height / 2)] = 10_000.;
+        d[(width / 2, height / 2)] = (width * height) as f32;
 
         sim.step(0.1, 0., 0.);
 
@@ -89,11 +89,11 @@ impl App for TriangleApp {
         //d[(center.1, x as usize)] = 1.;
         let (u, v) = self.sim.uv_mut();
 
-        u[(x as usize, center.1)] = -10.;
-        v[(x as usize, center.1)] = -10.;
+        u[(x as usize, center.1)] = -50. * (time * 3.).cos();
+        v[(x as usize, center.1)] = -50. * (time * 3.).sin();
 
         self.sim.density_mut().data_mut().fill(0.0);
-        self.sim.step(0.1, 0.0, 0.);
+        self.sim.step(0.1, 1e-9, 1e-7);
 
         draw_density(&mut self.tri_gb, self.sim.density());
 
@@ -129,7 +129,7 @@ fn draw_density(b: &mut GraphicsBuilder, density: &Array2D) {
             let j_frac = (j as f32 / density.height() as f32) * 2. - 1.;
 
             let density = density[(i, j)];
-            let color = [density; 3];
+            let color = [density * 3., density.powf(2.), density];//[density; 3];
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, 0.];
@@ -158,7 +158,7 @@ fn draw_velocity_squares(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D)) 
         for j in 0..u.height() {
             let j_frac = (j as f32 / u.height() as f32) * 2. - 1.;
 
-            let color = [u[(i, j)], v[(i, j)], 0.];
+            let color = [u[(i, j)].abs(), v[(i, j)].abs(), 0.];
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, 0.];
