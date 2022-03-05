@@ -61,12 +61,13 @@ fn diffuse(b: i32, x: &mut Array2D, x0: &Array2D, diff: f32, dt: f32) {
 fn advect(b: i32, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
     let (nx, ny) = inner_size(d);
 
-    let dt0 = dt * nx as f32; // TODO: why is this just N and not N*N?
+    let dt0 = dt * nx as f32;
+    let dt1 = dt * ny as f32;
 
     for i in 1..=nx {
         for j in 1..=ny {
             let mut x = i as f32 - dt0 * u[(i, j)];
-            let mut y = j as f32 - dt0 * v[(i, j)];
+            let mut y = j as f32 - dt1 * v[(i, j)];
 
             if x < 0.5 {
                 x = 0.5
@@ -87,8 +88,10 @@ fn advect(b: i32, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f
 
             let j0 = y as usize;
             let j1 = j0 + 1;
+
             let s1 = x - i0 as f32;
             let s0 = 1. - s1;
+
             let t1 = y - j0 as f32;
             let t0 = 1. - t1;
 
@@ -128,10 +131,10 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D)
 
 fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, diff: f32, dt: f32) {
     add_source(x, x0, dt);
-    std::mem::swap(x0, x);
+    //std::mem::swap(x0, x);
 
-    diffuse(0, x, x0, diff, dt);
-    std::mem::swap(x0, x);
+    diffuse(0, x0, x, diff, dt);
+    //std::mem::swap(x0, x);
 
     advect(0, x, x0, u, v, dt);
 }
@@ -147,16 +150,16 @@ fn vel_step(
     add_source(u, u0, dt);
     add_source(v, v0, dt);
 
-    std::mem::swap(u0, u);
-    diffuse(1, u, u0, visc, dt);
+    //std::mem::swap(u0, u);
+    diffuse(1, u0, u, visc, dt);
 
-    std::mem::swap(v0, v);
-    diffuse(2, v, v0, visc, dt);
+    //std::mem::swap(v0, v);
+    diffuse(2, v0, v, visc, dt);
 
-    project(u, v, u0, v0);
+    project(u0, v0, u, v);
 
-    std::mem::swap(u0, u);
-    std::mem::swap(v0, v);
+    //std::mem::swap(u0, u);
+    //std::mem::swap(v0, v);
 
     advect(1, u, u0, u0, v0, dt);
     advect(2, v, v0, u0, v0, dt);
