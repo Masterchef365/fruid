@@ -25,16 +25,12 @@ impl App for TriangleApp {
         let mut sim = Simulation::new(51, 51);
 
         let d = sim.density_mut();
-        let center = (d.width() / 2, d.height() / 2);
-        d[center] = 1000.;
 
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
         draw_density(&mut tri_gb, sim.density());
         draw_density(&mut line_gb, sim.density());
-
-        dbg!(tri_gb.vertices.len(), tri_gb.indices.len());
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
@@ -71,11 +67,17 @@ impl App for TriangleApp {
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
         //ctx.update_indices(&self.tri_gb.indices);
 
-        self.sim.step(0., 1., 1.);
-
-        let d = self.sim.density();
+        let d = self.sim.density_mut();
         let center = (d.width() / 2, d.height() / 2);
-        dbg!(d[center]);
+        d[center] = 80.;
+
+        let (u, v) = self.sim.uv_mut();
+        let time = ctx.start_time().elapsed().as_secs_f32();
+        let x = center.0 as f32 * (time.cos() + 1.);
+        u[(x as usize, center.1)] = -1000.;
+        v[(x as usize, center.1)] = -1000.;
+
+        self.sim.step(0.1, 0.1, 0.1);
 
         Ok(vec![
             /*DrawCmd::new(self.line_verts)
