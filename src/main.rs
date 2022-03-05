@@ -30,7 +30,10 @@ impl App for TriangleApp {
         let d = sim.density_mut();
         let height = d.height();
         let width = d.width();
-        d[(width / 2, height / 2)] = 1.;
+        d[(width / 2, height / 2)] = 10_000.;
+
+        sim.step(0.1, 0., 0.);
+
         /*
         for j in (0..height).step_by(width / 8) {
             for i in 0..width {
@@ -89,6 +92,7 @@ impl App for TriangleApp {
         u[(x as usize, center.1)] = -10.;
         v[(x as usize, center.1)] = -10.;
 
+        self.sim.density_mut().data_mut().fill(0.0);
         self.sim.step(0.1, 0.0, 0.);
 
         draw_density(&mut self.tri_gb, self.sim.density());
