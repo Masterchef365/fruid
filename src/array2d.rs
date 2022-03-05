@@ -6,18 +6,17 @@ pub struct Array2D<T> {
 
 impl<T> Array2D<T> {
     pub fn from_array(width: usize, data: Vec<T>) -> Self {
-        assert!(data.len() % width == 0);
-        assert!(data.len() / width == width);
+        assert_eq!(data.len() % width, 0);
         Self { width, data }
     }
 
-    pub fn new(width: usize) -> Self
+    pub fn new(width: usize, height: usize) -> Self
     where
         T: Default + Copy,
     {
         Self {
             width,
-            data: vec![T::default(); width * width],
+            data: vec![T::default(); width * height],
         }
     }
 

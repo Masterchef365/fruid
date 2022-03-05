@@ -1,10 +1,8 @@
 mod array2d;
-type Array2D = array2d::Array2D<f32>;
+pub type Array2D = array2d::Array2D<f32>;
 
-// #define IX(i,j) ((i)+(N+2)*(j))
-// #define SWAP(x0,x) {t: &Array2Dmp=x0;x0=x;x=tmp;}
-// #define FOR_EACH_CELL for ( i=1 ; i<=N ; i++ ) { for ( j=1 ; j<=N ; j++ ) {
-// #define END_FOR }}
+// TODO: Transpose the traversal order; this one will be shit with regards to the cache
+
 fn add_source(x: &mut Array2D, s: &Array2D, dt: f32) {
     x.data_mut()
         .iter_mut()
@@ -130,11 +128,8 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D)
 
 fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, diff: f32, dt: f32) {
     add_source(x, x0, dt);
-
     std::mem::swap(x0, x);
-
     diffuse(0, x, x0, diff, dt);
-
     std::mem::swap(x0, x);
     advect(0, x, x0, u, v, dt);
 }
@@ -159,4 +154,69 @@ fn vel_step(
     advect(1, u, u0, u0, v0, dt);
     advect(2, v, v0, u0, v0, dt);
     project(u, v, u0, v0);
+}
+
+pub struct Simulation {
+    u: Array2D,
+    v: Array2D,
+    u_prev: Array2D,
+    v_prev: Array2D,
+    dens: Array2D,
+    dens_prev: Array2D,
+}
+
+impl Simulation {
+    pub fn new(width: usize, height: usize) -> Self {
+        let arr = || Array2D::new(width, height);
+        Self {
+            u: arr(),
+            v: arr(),
+            u_prev: arr(),
+            v_prev: arr(),
+            dens: arr(),
+            dens_prev: arr(),
+        }
+    }
+
+    pub fn step(&mut self, dt: f32, visc: f32, diff: f32) {
+        vel_step(
+            &mut self.u,
+            &mut self.v,
+            &mut self.u_prev,
+            &mut self.v_prev,
+            visc,
+            dt,
+        );
+
+        dens_step(
+            &mut self.dens,
+            &mut self.dens_prev,
+            &mut self.u,
+            &mut self.v,
+            diff,
+            dt,
+        );
+    }
+
+    /*
+    pub fn dimensions(&self) -> (usize, usize) {
+        (self.u.width(), self.u.height())
+    }
+    */
+
+    pub fn uv(&self) -> (&Array2D, &Array2D) {
+        (&self.u, &self.v)
+    }
+
+    pub fn density(&self) -> &Array2D {
+        &self.dens
+    }
+
+    pub fn uv_mut(&mut self) -> (&mut Array2D, &mut Array2D) {
+        (&mut self.u, &mut self.v)
+    }
+
+    pub fn density_mut(&mut self) -> &mut Array2D {
+        &mut self.dens
+    }
 }
