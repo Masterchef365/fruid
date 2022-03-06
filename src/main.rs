@@ -1,4 +1,4 @@
-use fruid::{Array2D, FluidSim, DensitySim};
+use fruid::{Array2D, DensitySim, FluidSim};
 use idek::{prelude::*, IndexBuffer};
 mod graphics_builder;
 use graphics_builder::GraphicsBuilder;
@@ -49,10 +49,14 @@ impl App for TriangleApp {
         g.step(sim.uv(), 0.1, 0.);
         b.step(sim.uv(), 0.1, 0.);
 
-        dbg!(b.density()[(2 * width / 3, 2 * height / 3)]);
-
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
-        draw_density(&mut tri_gb, r.density(), g.density(), b.density(), DENSITY_Z);
+        draw_density(
+            &mut tri_gb,
+            r.density(),
+            g.density(),
+            b.density(),
+            DENSITY_Z,
+        );
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
@@ -72,7 +76,9 @@ impl App for TriangleApp {
             line_gb,
             line_shader,
 
-            r, g, b,
+            r,
+            g,
+            b,
 
             tri_verts,
             tri_indices,
@@ -86,8 +92,7 @@ impl App for TriangleApp {
 
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
         // Modify
-        self.frame_count += 1;
-        let time = self.frame_count as f32 / 12.;//ctx.start_time().elapsed().as_secs_f32();
+        let time = self.frame_count as f32 / 12.; //ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.r.density_mut();
         let center = (d.width() / 2, d.height() / 2);
@@ -117,18 +122,33 @@ impl App for TriangleApp {
         self.line_gb.clear();
         self.tri_gb.clear();
 
-        draw_density(&mut self.tri_gb, self.r.density(), self.g.density(), self.b.density(), DENSITY_Z);
+        draw_density(
+            &mut self.tri_gb,
+            self.r.density(),
+            self.g.density(),
+            self.b.density(),
+            DENSITY_Z,
+        );
+
+        draw_density_image(
+            &format!("{}.ppm", self.frame_count),
+            self.r.density(),
+            self.g.density(),
+            self.b.density(),
+        );
         //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
         //ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
+        self.frame_count += 1;
+
         // Render
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             /*DrawCmd::new(self.line_verts)
-                .indices(self.line_indices)
-                .shader(self.line_shader),*/
+            .indices(self.line_indices)
+            .shader(self.line_shader),*/
         ])
     }
 
@@ -149,17 +169,9 @@ fn draw_density(builder: &mut GraphicsBuilder, r: &Array2D, g: &Array2D, b: &Arr
             let j_frac = (j as f32 / r.height() as f32) * 2. - 1.;
 
             // CMY dye
-            let dye = [
-                r[(i, j)],
-                g[(i, j)],
-                b[(i, j)],
-            ];
+            let dye = [r[(i, j)], g[(i, j)], b[(i, j)]];
 
-            let total_dye = dye.iter().map(|d| d * d).sum::<f32>().sqrt();
-
-            let color = dye
-                .map(|f| (1. - f) / total_dye.max(1.))
-                .map(|d| (d + 2.).log2());
+            let color = dye_colors(dye);
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, z];
@@ -175,6 +187,35 @@ fn draw_density(builder: &mut GraphicsBuilder, r: &Array2D, g: &Array2D, b: &Arr
             builder.push_indices(&[bl, tr, tl, bl, br, tr]);
         }
     }
+}
+
+fn draw_density_image(path: &str, r: &Array2D, g: &Array2D, b: &Array2D) {
+    let image: Vec<u8> = r
+        .data()
+        .iter()
+        .zip(g.data())
+        .zip(b.data())
+        .map(|((&c, &m), &y)| dye_colors([c, m, y]).map(|f| (f.clamp(0., 1.) * 256.) as u8))
+        .flatten()
+        .collect();
+    write_ppm(path, &image, r.width()).expect("Failed to write image");
+}
+
+pub fn write_ppm(path: &str, image: &[u8], width: usize) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(path)?);
+    let height = image.len() / (width * 3);
+    assert_eq!(image.len() % 3, 0);
+    assert_eq!(image.len() % (width * 3), 0);
+    writer.write(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
+    writer.write(image)?;
+    Ok(())
+}
+
+fn dye_colors(dye: [f32; 3]) -> [f32; 3] {
+    let total_dye = dye.iter().map(|d| d * d).sum::<f32>().sqrt();
+    dye.map(|f| (1. - f) / (total_dye * 0.8).max(1.))
+        .map(|d| (d + 2.).log2())
 }
 
 fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z: f32) {

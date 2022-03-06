@@ -39,7 +39,7 @@ fn set_bnd(b: i32, x: &mut Array2D) {
 fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, a: f32, c: f32) {
     let (nx, ny) = inner_size(x);
 
-    for _ in 0..15 {
+    for _ in 0..20 {
         for i in 1..=nx {
             for j in 1..=ny {
                 x[(i, j)] = (x0[(i, j)]
