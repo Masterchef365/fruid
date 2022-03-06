@@ -21,6 +21,8 @@ struct TriangleApp {
     tri_gb: GraphicsBuilder,
 
     sim: Simulation,
+
+    frame_count: usize,
 }
 
 impl App for TriangleApp {
@@ -28,7 +30,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = Simulation::new(100, 100);
+        let mut sim = Simulation::new(250, 250);
 
         let d = sim.density_mut();
         let height = d.height();
@@ -63,25 +65,30 @@ impl App for TriangleApp {
             tri_gb,
 
             sim,
+
+            frame_count: 0,
         })
     }
 
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
         // Modify
-        let time = ctx.start_time().elapsed().as_secs_f32();
+        self.frame_count += 1;
+        let time = self.frame_count as f32 / 50.;//ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.sim.density_mut();
         let center = (d.width() / 2, d.height() / 2);
-        let x = center.0 as f32 * (time.cos() + 1.);
+        let x = center.0 as f32 * ((time / 5.).cos() + 1.);
 
         let (u, v) = self.sim.uv_mut();
 
-        u[(x as usize, center.1)] = -50. * (time * 3.).cos();
-        v[(x as usize, center.1)] = -50. * (time * 3.).sin();
+        let pos = (x as usize, center.1);
+        u[pos] = -300. * (time * 3.).cos();
+        v[pos] = -300. * (time * 3.).sin();
 
         // Step
         self.sim.density_mut().data_mut().fill(0.0);
-        self.sim.step(0.1, 1e-9, 1e-7);
+        self.sim.step(1e-2, 0., 0.);
+        //self.sim.step(0.1, 0., 0.);
 
         // Draw
         self.line_gb.clear();
@@ -90,8 +97,8 @@ impl App for TriangleApp {
         draw_density(&mut self.tri_gb, self.sim.density(), DENSITY_Z);
         draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
-        ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
+        ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
         // Render
         Ok(vec![
@@ -133,7 +140,6 @@ fn draw_density(b: &mut GraphicsBuilder, density: &Array2D, z: f32) {
             let br = push(cell_width, cell_height);
 
             b.push_indices(&[bl, tr, tl, bl, br, tr]);
-            //b.push_indices(&[tl, tr, bl, tr, br, bl]);
         }
     }
 }
@@ -162,7 +168,9 @@ fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z:
             let tail_x = i_frac + cell_width / 2.;
             let tail_y = j_frac + cell_height / 2.;
             let tail = push(tail_x, tail_y);
-            let tip = push(tail_x + u, tail_y + v);
+
+            let len = cell_height * 2. / speed;
+            let tip = push(tail_x + u * len, tail_y + v * len);
 
             b.push_indices(&[tip, tail]);
         }
