@@ -36,26 +36,30 @@ fn set_bnd(b: i32, x: &mut Array2D) {
     x[(nx + 1, ny + 1)] = 0.5 * (x[(nx, ny + 1)] + x[(nx + 1, ny)]);
 }
 
-fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, a: f32, c: f32) {
+fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
     let (nx, ny) = inner_size(x);
+
+    let mut x = x;
+    let mut scratch = scratch;
 
     for _ in 0..20 {
         for i in 1..=nx {
             for j in 1..=ny {
-                x[(i, j)] = (x0[(i, j)]
+                scratch[(i, j)] = (x0[(i, j)]
                     + a * (x[(i - 1, j)] + x[(i + 1, j)] + x[(i, j - 1)] + x[(i, j + 1)]))
                     / c;
             }
         }
+        std::mem::swap(&mut scratch, &mut x);
         set_bnd(b, x);
     }
 }
 
-fn diffuse(b: i32, x: &mut Array2D, x0: &Array2D, diff: f32, dt: f32) {
+fn diffuse(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
     let (nx, ny) = inner_size(x);
     let a = dt * diff * nx as f32 * ny as f32;
 
-    lin_solve(b, x, x0, a, 1. + 4. * a);
+    lin_solve(b, x, x0, scratch, a, 1. + 4. * a);
 }
 
 fn advect(b: i32, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
@@ -102,7 +106,7 @@ fn advect(b: i32, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f
     set_bnd(b, d);
 }
 
-fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D) {
+fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D, scratch: &mut Array2D) {
     let (nx, ny) = inner_size(u);
 
     for i in 1..=nx {
@@ -116,7 +120,7 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D)
     set_bnd(0, div);
     set_bnd(0, p);
 
-    lin_solve(0, p, div, 1., 4.);
+    lin_solve(0, p, div, scratch, 1., 4.);
 
     for i in 1..=nx {
         for j in 1..=ny {
@@ -129,11 +133,11 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D)
     set_bnd(2, v);
 }
 
-fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, diff: f32, dt: f32) {
+fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
     add_source(x, x0, dt);
     //std::mem::swap(x0, x);
 
-    diffuse(0, x0, x, diff, dt);
+    diffuse(0, x0, x, scratch, diff, dt);
     //std::mem::swap(x0, x);
 
     advect(0, x, x0, u, v, dt);
@@ -144,6 +148,7 @@ fn vel_step(
     v: &mut Array2D,
     u0: &mut Array2D,
     v0: &mut Array2D,
+    scratch: &mut Array2D,
     visc: f32,
     dt: f32,
 ) {
@@ -151,12 +156,12 @@ fn vel_step(
     add_source(v, v0, dt);
 
     //std::mem::swap(u0, u);
-    diffuse(1, u0, u, visc, dt);
+    diffuse(1, u0, u, scratch, visc, dt);
 
     //std::mem::swap(v0, v);
-    diffuse(2, v0, v, visc, dt);
+    diffuse(2, v0, v, scratch, visc, dt);
 
-    project(u0, v0, u, v);
+    project(u0, v0, u, v, scratch);
 
     //std::mem::swap(u0, u);
     //std::mem::swap(v0, v);
@@ -164,12 +169,13 @@ fn vel_step(
     advect(1, u, u0, u0, v0, dt);
     advect(2, v, v0, u0, v0, dt);
 
-    project(u, v, u0, v0);
+    project(u, v, u0, v0, scratch);
 }
 
 pub struct DensitySim {
     dens: Array2D,
     dens_prev: Array2D,
+    scratch: Array2D,
 }
 
 impl DensitySim {
@@ -178,6 +184,7 @@ impl DensitySim {
         Self {
             dens: arr(),
             dens_prev: arr(),
+            scratch: arr(),
         }
     }
 
@@ -187,6 +194,7 @@ impl DensitySim {
             &mut self.dens_prev,
             u,
             v,
+            &mut self.scratch,
             diff,
             dt,
         );
@@ -206,6 +214,7 @@ pub struct FluidSim {
     v: Array2D,
     u_prev: Array2D,
     v_prev: Array2D,
+    scratch: Array2D,
 }
 
 impl FluidSim {
@@ -216,6 +225,7 @@ impl FluidSim {
             v: arr(),
             u_prev: arr(),
             v_prev: arr(),
+            scratch: arr(),
         }
     }
 
@@ -225,6 +235,7 @@ impl FluidSim {
             &mut self.v,
             &mut self.u_prev,
             &mut self.v_prev,
+            &mut self.scratch,
             visc,
             dt,
         );
