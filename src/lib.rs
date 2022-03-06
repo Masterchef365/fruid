@@ -39,7 +39,7 @@ fn set_bnd(b: i32, x: &mut Array2D) {
 fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, a: f32, c: f32) {
     let (nx, ny) = inner_size(x);
 
-    for _ in 0..30 {
+    for _ in 0..15 {
         for i in 1..=nx {
             for j in 1..=ny {
                 x[(i, j)] = (x0[(i, j)]
@@ -167,16 +167,48 @@ fn vel_step(
     project(u, v, u0, v0);
 }
 
-pub struct Simulation {
-    u: Array2D,
-    v: Array2D,
-    u_prev: Array2D,
-    v_prev: Array2D,
+pub struct DensitySim {
     dens: Array2D,
     dens_prev: Array2D,
 }
 
-impl Simulation {
+impl DensitySim {
+    pub fn new(width: usize, height: usize) -> Self {
+        let arr = || Array2D::new(width, height);
+        Self {
+            dens: arr(),
+            dens_prev: arr(),
+        }
+    }
+
+    pub fn step(&mut self, (u, v): (&Array2D, &Array2D), dt: f32, diff: f32) {
+        dens_step(
+            &mut self.dens,
+            &mut self.dens_prev,
+            u,
+            v,
+            diff,
+            dt,
+        );
+    }
+
+    pub fn density(&self) -> &Array2D {
+        &self.dens
+    }
+
+    pub fn density_mut(&mut self) -> &mut Array2D {
+        &mut self.dens_prev
+    }
+}
+
+pub struct FluidSim {
+    u: Array2D,
+    v: Array2D,
+    u_prev: Array2D,
+    v_prev: Array2D,
+}
+
+impl FluidSim {
     pub fn new(width: usize, height: usize) -> Self {
         let arr = || Array2D::new(width, height);
         Self {
@@ -184,12 +216,10 @@ impl Simulation {
             v: arr(),
             u_prev: arr(),
             v_prev: arr(),
-            dens: arr(),
-            dens_prev: arr(),
         }
     }
 
-    pub fn step(&mut self, dt: f32, visc: f32, diff: f32) {
+    pub fn step(&mut self, dt: f32, visc: f32) {
         vel_step(
             &mut self.u,
             &mut self.v,
@@ -198,36 +228,21 @@ impl Simulation {
             visc,
             dt,
         );
-
-        dens_step(
-            &mut self.dens,
-            &mut self.dens_prev,
-            &mut self.u,
-            &mut self.v,
-            diff,
-            dt,
-        );
     }
-
-    /*
-    pub fn dimensions(&self) -> (usize, usize) {
-        (self.u.width(), self.u.height())
-    }
-    */
 
     pub fn uv(&self) -> (&Array2D, &Array2D) {
         (&self.u, &self.v)
-    }
-
-    pub fn density(&self) -> &Array2D {
-        &self.dens
     }
 
     pub fn uv_mut(&mut self) -> (&mut Array2D, &mut Array2D) {
         (&mut self.u_prev, &mut self.v_prev)
     }
 
-    pub fn density_mut(&mut self) -> &mut Array2D {
-        &mut self.dens_prev
+    pub fn width(&self) -> usize {
+        self.u.width()
+    }
+
+    pub fn height(&self) -> usize {
+        self.u.height()
     }
 }
