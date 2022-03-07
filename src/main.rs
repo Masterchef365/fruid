@@ -1,4 +1,4 @@
-use fruid::{Array2D, FluidSim, DensitySim};
+use fruid::{Array2D, DensitySim, FluidSim};
 use idek::{prelude::*, IndexBuffer};
 mod graphics_builder;
 use graphics_builder::GraphicsBuilder;
@@ -34,15 +34,16 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = FluidSim::new(350, 350);
+        let mut sim = FluidSim::new(200, 200);
 
-        let [mut c, mut m, mut y, mut k] = [(); 4].map(|_| DensitySim::new(sim.width(), sim.height()));
+        let [mut c, mut m, mut y, mut k] =
+            [(); 4].map(|_| DensitySim::new(sim.width(), sim.height()));
 
         let height = sim.height();
         let width = sim.width();
-        let intensity = 80. * (width * height) as f32;
+        let intensity = 1. * (width * height) as f32;
         c.density_mut()[(width / 5, height / 2)] = intensity;
-        k.density_mut()[(2 * width / 5, height / 2)] = intensity / 100.;
+        k.density_mut()[(2 * width / 5, height / 2)] = intensity;
         m.density_mut()[(3 * width / 5, height / 2)] = intensity;
         y.density_mut()[(4 * width / 5, height / 2)] = intensity;
 
@@ -55,7 +56,14 @@ impl App for TriangleApp {
         dbg!(y.density()[(2 * width / 3, 2 * height / 3)]);
 
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
-        draw_density(&mut tri_gb, c.density(), m.density(), y.density(), k.density(), DENSITY_Z);
+        draw_density(
+            &mut tri_gb,
+            c.density(),
+            m.density(),
+            y.density(),
+            k.density(),
+            DENSITY_Z,
+        );
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
@@ -75,7 +83,10 @@ impl App for TriangleApp {
             line_gb,
             line_shader,
 
-            c, m, y, k,
+            c,
+            m,
+            y,
+            k,
 
             tri_verts,
             tri_indices,
@@ -90,7 +101,7 @@ impl App for TriangleApp {
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
         // Modify
         self.frame_count += 1;
-        let time = self.frame_count as f32 / 12.;//ctx.start_time().elapsed().as_secs_f32();
+        let time = self.frame_count as f32 / 12.; //ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.c.density_mut();
         let center = (d.width() / 2, d.height() / 2);
@@ -122,7 +133,14 @@ impl App for TriangleApp {
         self.line_gb.clear();
         self.tri_gb.clear();
 
-        draw_density(&mut self.tri_gb, self.c.density(), self.m.density(), self.y.density(), self.k.density(), DENSITY_Z);
+        draw_density(
+            &mut self.tri_gb,
+            self.c.density(),
+            self.m.density(),
+            self.y.density(),
+            self.k.density(),
+            DENSITY_Z,
+        );
         //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
@@ -132,8 +150,8 @@ impl App for TriangleApp {
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             /*DrawCmd::new(self.line_verts)
-                .indices(self.line_indices)
-                .shader(self.line_shader),*/
+            .indices(self.line_indices)
+            .shader(self.line_shader),*/
         ])
     }
 
@@ -144,7 +162,14 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, c: &Array2D, m: &Array2D, y: &Array2D, k: &Array2D, z: f32) {
+fn draw_density(
+    builder: &mut GraphicsBuilder,
+    c: &Array2D,
+    m: &Array2D,
+    y: &Array2D,
+    k: &Array2D,
+    z: f32,
+) {
     let cell_width = 2. / c.width() as f32;
     let cell_height = 2. / c.height() as f32;
 
@@ -155,16 +180,13 @@ fn draw_density(builder: &mut GraphicsBuilder, c: &Array2D, m: &Array2D, y: &Arr
 
             // CMY dye
             let k = k[(i, j)];
-            let cmy = [
-                c[(i, j)],
-                m[(i, j)],
-                y[(i, j)],
-            ];
+            let cmy = [c[(i, j)], m[(i, j)], y[(i, j)]];
 
-            let total_dye = cmy.iter().map(|d| d * d).sum::<f32>().sqrt();
+            //let total_dye = cmy.iter().map(|d| d * d).sum::<f32>().sqrt();
 
             let color = cmy
-                .map(|f| (1. - f - k) / total_dye.max(1.))
+                //.map(|f| (1. - f - k) / total_dye.max(1.))
+                .map(|f| 1. - f - k)
                 .map(|d| (d + 2.).log2());
 
             let mut push = |dx: f32, dy: f32| {
