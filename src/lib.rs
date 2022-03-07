@@ -1,5 +1,6 @@
 mod array2d;
 pub type Array2D = array2d::Array2D<f32>;
+use rayon::prelude::*;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
 
@@ -37,19 +38,26 @@ fn set_bnd(b: i32, x: &mut Array2D) {
 }
 
 fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
-    let (nx, ny) = inner_size(x);
+    //let (nx, ny) = inner_size(x);
 
     let mut x = x;
     let mut scratch = scratch;
 
     for _ in 0..20 {
-        for i in 1..=nx {
-            for j in 1..=ny {
-                scratch[(i, j)] = (x0[(i, j)]
-                    + a * (x[(i - 1, j)] + x[(i + 1, j)] + x[(i, j - 1)] + x[(i, j + 1)]))
-                    / c;
-            }
-        }
+        scratch
+            .data_mut()
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(idx, scratch_elem)| {
+                let i = idx % x.width();
+                let j = idx / x.width();
+                if i >= 1 && i < x.width() - 1 && j >= 1 && j < x.height() - 1 {
+                    *scratch_elem = (x0[(i, j)]
+                        + a * (x[(i - 1, j)] + x[(i + 1, j)] + x[(i, j - 1)] + x[(i, j + 1)]))
+                        / c;
+                }
+            });
+
         std::mem::swap(&mut scratch, &mut x);
         set_bnd(b, x);
     }
@@ -106,7 +114,13 @@ fn advect(b: i32, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f
     set_bnd(b, d);
 }
 
-fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D, scratch: &mut Array2D) {
+fn project(
+    u: &mut Array2D,
+    v: &mut Array2D,
+    p: &mut Array2D,
+    div: &mut Array2D,
+    scratch: &mut Array2D,
+) {
     let (nx, ny) = inner_size(u);
 
     for i in 1..=nx {
@@ -133,7 +147,15 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D,
     set_bnd(2, v);
 }
 
-fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
+fn dens_step(
+    x: &mut Array2D,
+    x0: &mut Array2D,
+    u: &Array2D,
+    v: &Array2D,
+    scratch: &mut Array2D,
+    diff: f32,
+    dt: f32,
+) {
     add_source(x, x0, dt);
     //std::mem::swap(x0, x);
 

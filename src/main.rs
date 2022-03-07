@@ -34,7 +34,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = FluidSim::new(250, 250);
+        let mut sim = FluidSim::new(350, 350);
 
         let [mut c, mut m, mut y, mut k] = [(); 4].map(|_| DensitySim::new(sim.width(), sim.height()));
 
