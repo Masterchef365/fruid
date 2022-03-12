@@ -195,8 +195,8 @@ fn vel_step(
 }
 
 pub struct DensitySim {
-    dens: Array2D,
-    dens_prev: Array2D,
+    pub dens: Array2D,
+    pub dens_prev: Array2D,
     scratch: Array2D,
 }
 

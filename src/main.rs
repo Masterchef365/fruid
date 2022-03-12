@@ -31,8 +31,18 @@ struct TriangleApp {
 }
 
 fn react(c: &mut f32, m: &mut f32, y: &mut f32, k: &mut f32, u: &mut f32, v: &mut f32) {
-    *u = (*c * 824380.).sin();
-    *v = (*c * 942903.).sin();
+    //*u = (*k * 18.).sin() * *k * 8.;
+    //*v = (*k * 19.).sin() * *k * 8.;
+
+    let combust_rate = (*c).min(*m).clamp(0., 1.) * 1.;
+
+    *c -= combust_rate;
+    *m -= combust_rate;
+    *y += combust_rate;
+
+    let kaboom = 10_000.;
+    *u *= 1. + combust_rate * kaboom;
+    *v *= 1. + combust_rate * kaboom;
 }
 
 fn reaction(
@@ -128,6 +138,17 @@ impl App for TriangleApp {
         let time = self.frame_count as f32 / 12.; //ctx.start_time().elapsed().as_secs_f32();
 
         let (u, v) = self.sim.uv_mut();
+
+        let center = (u.width() / 2, u.height() / 2);
+        let x = center.0 as f32 * ((time / 5.).cos() * 0.8 + 1.);
+        u[(x as usize, center.1)] += time.cos() * 100.;
+
+        // Step
+        //self.c.density_mut().data_mut().fill(0.0);
+        //self.m.density_mut().data_mut().fill(0.0);
+        //self.y.density_mut().data_mut().fill(0.0);
+        //self.k.density_mut().data_mut().fill(0.0);
+
         reaction(
             self.c.density_mut(),
             self.m.density_mut(),
@@ -136,21 +157,10 @@ impl App for TriangleApp {
             u, 
             v
         );
-        //let center = (d.width() / 2, d.height() / 2);
-        //let x = center.0 as f32 * ((time / 5.).cos() + 1.);
-
-        let (u, v) = self.sim.uv_mut();
-
-
-        // Step
-        self.c.density_mut().data_mut().fill(0.0);
-        self.m.density_mut().data_mut().fill(0.0);
-        self.y.density_mut().data_mut().fill(0.0);
-        self.k.density_mut().data_mut().fill(0.0);
 
         let dt = 1e-2;
         let visc = 0.0;
-        let diff = 0.;
+        let diff = 0.0;
 
         self.sim.step(dt, visc);
         self.c.step(self.sim.uv(), dt, diff);
@@ -178,9 +188,9 @@ impl App for TriangleApp {
         // Render
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
-            DrawCmd::new(self.line_verts)
+            /*DrawCmd::new(self.line_verts)
                 .indices(self.line_indices)
-                .shader(self.line_shader),
+                .shader(self.line_shader),*/
         ])
     }
 
