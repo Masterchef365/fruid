@@ -2,6 +2,7 @@ use fruid::{Array2D, DensitySim, FluidSim};
 use idek::{prelude::*, IndexBuffer};
 mod graphics_builder;
 use graphics_builder::GraphicsBuilder;
+use rayon::prelude::*;
 
 fn main() -> Result<()> {
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
@@ -29,6 +30,29 @@ struct TriangleApp {
     frame_count: usize,
 }
 
+fn react(c: &mut f32, m: &mut f32, y: &mut f32, k: &mut f32, u: &mut f32, v: &mut f32) {
+    *u = (*c * 824380.).sin();
+    *v = (*c * 942903.).sin();
+}
+
+fn reaction(
+    c: &mut Array2D,
+    m: &mut Array2D,
+    y: &mut Array2D,
+    k: &mut Array2D,
+    u: &mut Array2D,
+    v: &mut Array2D,
+) {
+    c.data_mut()
+        .iter_mut()
+        .zip(m.data_mut())
+        .zip(y.data_mut())
+        .zip(k.data_mut())
+        .zip(u.data_mut())
+        .zip(v.data_mut())
+        .for_each(|(((((c, m), y), k), u), v)| react(c, m, y, k, u, v));
+}
+
 impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
         let mut line_gb = GraphicsBuilder::new();
@@ -43,9 +67,9 @@ impl App for TriangleApp {
         let width = sim.width();
         let intensity = 1. * (width * height) as f32;
         c.density_mut()[(width / 5, height / 2)] = intensity;
-        m.density_mut()[(3 * width / 5, height / 2)] = intensity;
+        m.density_mut()[(2 * width / 5, height / 2)] = intensity;
         y.density_mut()[(4 * width / 5, height / 2)] = intensity;
-        k.density_mut()[(2 * width / 5, height / 2)] = intensity / 10.;
+        k.density_mut()[(3 * width / 5, height / 2)] = intensity / 10.;
 
         sim.step(0.1, 0.0);
         c.step(sim.uv(), 0.1, 0.);
@@ -103,24 +127,20 @@ impl App for TriangleApp {
         self.frame_count += 1;
         let time = self.frame_count as f32 / 12.; //ctx.start_time().elapsed().as_secs_f32();
 
-        let d = self.c.density_mut();
-        let center = (d.width() / 2, d.height() / 2);
+        let (u, v) = self.sim.uv_mut();
+        reaction(
+            self.c.density_mut(),
+            self.m.density_mut(),
+            self.y.density_mut(),
+            self.k.density_mut(),
+            u, 
+            v
+        );
+        //let center = (d.width() / 2, d.height() / 2);
         //let x = center.0 as f32 * ((time / 5.).cos() + 1.);
 
         let (u, v) = self.sim.uv_mut();
 
-        for x in 0..u.width() {
-            let xf = x as f32 / u.width() as f32;
-            for y in 0..u.height() {
-                let yf = y as f32 / u.height() as f32;
-                let d = d[(x, y)];
-                u[(x, y)] += (d * 8.).cos() * d;
-                v[(x, y)] += (d * 8.).sin() * d;
-            }
-        }
-        //let pos = (x as usize, center.1);
-        //u[pos] = -10. * (time * 3.).cos();
-        //v[pos] = -10. * (time * 3.).sin();
 
         // Step
         self.c.density_mut().data_mut().fill(0.0);
@@ -159,8 +179,8 @@ impl App for TriangleApp {
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             DrawCmd::new(self.line_verts)
-            .indices(self.line_indices)
-            .shader(self.line_shader),
+                .indices(self.line_indices)
+                .shader(self.line_shader),
         ])
     }
 
@@ -197,7 +217,7 @@ fn draw_density(
                 //.map(|f| (1. - f - k) / total_dye.max(1.))
                 //.map(|f| 1. - f - k);
                 .map(|f| f + k);
-                //.map(|d| (d + 2.).log2());
+            //.map(|d| (d + 2.).log2());
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, z];
