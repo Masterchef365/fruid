@@ -34,7 +34,7 @@ fn react(c: &mut f32, m: &mut f32, y: &mut f32, k: &mut f32, u: &mut f32, v: &mu
     //*u = (*k * 18.).sin() * *k * 8.;
     //*v = (*k * 19.).sin() * *k * 8.;
 
-    let combust_rate = (*c).min(*m).clamp(0., 1.) * 0.2;
+    let combust_rate = (*c).min(*m).clamp(0., 1.) * 0.9;
 
     *c = -combust_rate;
     *m = -combust_rate;
@@ -69,7 +69,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = FluidSim::new(150, 150);
+        let mut sim = FluidSim::new(200, 200);
 
         let [mut c, mut m, mut y, mut k] =
             [(); 4].map(|_| DensitySim::new(sim.width(), sim.height()));
