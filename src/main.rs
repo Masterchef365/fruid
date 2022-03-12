@@ -36,10 +36,14 @@ fn react(c: &mut f32, m: &mut f32, y: &mut f32, k: &mut f32, u: &mut f32, v: &mu
 
     let combust_rate = (*c).min(*m).clamp(0., 1.) * 0.9;
 
+    let co = *c + *m;
+
     *c = -combust_rate;
     *m = -combust_rate;
     *y = combust_rate * 2.;
     *k = 0.;
+
+    let combust_rate = combust_rate * (0.5 + (co * 342803.).cos());
 
     let kaboom = 10_000.;
     *u *= 1. + combust_rate * kaboom;
@@ -186,12 +190,20 @@ impl App for TriangleApp {
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
         ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
+        draw_density_image(
+            &format!("{:05}.ppm", self.frame_count),
+            self.c.density(),
+            self.m.density(),
+            self.y.density(),
+            self.k.density(),
+        );
+
         // Render
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             /*DrawCmd::new(self.line_verts)
-                .indices(self.line_indices)
-                .shader(self.line_shader),*/
+            .indices(self.line_indices)
+            .shader(self.line_shader),*/
         ])
     }
 
@@ -219,17 +231,7 @@ fn draw_density(
             let j_frac = (j as f32 / c.height() as f32) * 2. - 1.;
 
             // CMY dye
-            let k = k[(i, j)];
-            let cmy = [c[(i, j)], m[(i, j)], y[(i, j)]];
-
-            //let total_dye = cmy.iter().map(|d| d * d).sum::<f32>().sqrt();
-
-            let color = cmy
-                //.map(|f| (1. - f - k) / total_dye.max(1.))
-                //.map(|f| 1. - f - k);
-                .map(|f| f + k);
-                //.map(f32::sqrt);
-            //.map(|d| (d + 2.).log2());
+            let color = dye_colors(c[(i, j)], m[(i, j)], y[(i, j)], k[(i, j)]);
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, z];
@@ -245,6 +247,34 @@ fn draw_density(
             builder.push_indices(&[bl, tr, tl, bl, br, tr]);
         }
     }
+}
+
+fn draw_density_image(path: &str, c: &Array2D, m: &Array2D, y: &Array2D, k: &Array2D) {
+    let image: Vec<u8> = c
+        .data()
+        .iter()
+        .zip(m.data())
+        .zip(y.data())
+        .zip(k.data())
+        .map(|(((&c, &m), &y), &k)| dye_colors(c, m, y, k).map(|f| (f.clamp(0., 1.) * 256.) as u8))
+        .flatten()
+        .collect();
+    write_ppm(path, &image, c.width()).expect("Failed to write image");
+}
+
+pub fn write_ppm(path: &str, image: &[u8], width: usize) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(path)?);
+    let height = image.len() / (width * 3);
+    assert_eq!(image.len() % 3, 0);
+    assert_eq!(image.len() % (width * 3), 0);
+    writer.write(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
+    writer.write(image)?;
+    Ok(())
+}
+
+fn dye_colors(c: f32, m: f32, y: f32, k: f32) -> [f32; 3] {
+    [c, m, y].map(|f| f + k)
 }
 
 fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z: f32) {
