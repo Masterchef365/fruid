@@ -43,9 +43,9 @@ impl App for TriangleApp {
         let width = sim.width();
         let intensity = 1. * (width * height) as f32;
         c.density_mut()[(width / 5, height / 2)] = intensity;
-        k.density_mut()[(2 * width / 5, height / 2)] = intensity;
         m.density_mut()[(3 * width / 5, height / 2)] = intensity;
         y.density_mut()[(4 * width / 5, height / 2)] = intensity;
+        k.density_mut()[(2 * width / 5, height / 2)] = intensity / 10.;
 
         sim.step(0.1, 0.0);
         c.step(sim.uv(), 0.1, 0.);
@@ -105,13 +105,22 @@ impl App for TriangleApp {
 
         let d = self.c.density_mut();
         let center = (d.width() / 2, d.height() / 2);
-        let x = center.0 as f32 * ((time / 5.).cos() + 1.);
+        //let x = center.0 as f32 * ((time / 5.).cos() + 1.);
 
         let (u, v) = self.sim.uv_mut();
 
-        let pos = (x as usize, center.1);
-        u[pos] = -4500. * (time * 3.).cos();
-        v[pos] = -4500. * (time * 3.).sin();
+        for x in 0..u.width() {
+            let xf = x as f32 / u.width() as f32;
+            for y in 0..u.height() {
+                let yf = y as f32 / u.height() as f32;
+                let d = d[(x, y)];
+                u[(x, y)] += (d * 8.).cos() * d;
+                v[(x, y)] += (d * 8.).sin() * d;
+            }
+        }
+        //let pos = (x as usize, center.1);
+        //u[pos] = -10. * (time * 3.).cos();
+        //v[pos] = -10. * (time * 3.).sin();
 
         // Step
         self.c.density_mut().data_mut().fill(0.0);
@@ -120,7 +129,7 @@ impl App for TriangleApp {
         self.k.density_mut().data_mut().fill(0.0);
 
         let dt = 1e-2;
-        let visc = 0.;
+        let visc = 0.0;
         let diff = 0.;
 
         self.sim.step(dt, visc);
@@ -141,17 +150,17 @@ impl App for TriangleApp {
             self.k.density(),
             DENSITY_Z,
         );
-        //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
+        draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
-        //ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
+        ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
         // Render
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
-            /*DrawCmd::new(self.line_verts)
+            DrawCmd::new(self.line_verts)
             .indices(self.line_indices)
-            .shader(self.line_shader),*/
+            .shader(self.line_shader),
         ])
     }
 
@@ -186,8 +195,9 @@ fn draw_density(
 
             let color = cmy
                 //.map(|f| (1. - f - k) / total_dye.max(1.))
-                .map(|f| 1. - f - k)
-                .map(|d| (d + 2.).log2());
+                //.map(|f| 1. - f - k);
+                .map(|f| f + k);
+                //.map(|d| (d + 2.).log2());
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, z];
