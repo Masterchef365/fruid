@@ -34,11 +34,12 @@ fn react(c: &mut f32, m: &mut f32, y: &mut f32, k: &mut f32, u: &mut f32, v: &mu
     //*u = (*k * 18.).sin() * *k * 8.;
     //*v = (*k * 19.).sin() * *k * 8.;
 
-    let combust_rate = (*c).min(*m).clamp(0., 1.) * 1.;
+    let combust_rate = (*c).min(*m).clamp(0., 1.) * 0.2;
 
-    *c -= combust_rate;
-    *m -= combust_rate;
-    *y += combust_rate;
+    *c = -combust_rate;
+    *m = -combust_rate;
+    *y = combust_rate * 2.;
+    *k = 0.;
 
     let kaboom = 10_000.;
     *u *= 1. + combust_rate * kaboom;
@@ -68,18 +69,18 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = FluidSim::new(200, 200);
+        let mut sim = FluidSim::new(150, 150);
 
         let [mut c, mut m, mut y, mut k] =
             [(); 4].map(|_| DensitySim::new(sim.width(), sim.height()));
 
         let height = sim.height();
         let width = sim.width();
-        let intensity = 1. * (width * height) as f32;
-        c.density_mut()[(width / 5, height / 2)] = intensity;
-        m.density_mut()[(2 * width / 5, height / 2)] = intensity;
-        y.density_mut()[(4 * width / 5, height / 2)] = intensity;
-        k.density_mut()[(3 * width / 5, height / 2)] = intensity / 10.;
+        let intensity = 15_000.;
+        c.density_mut()[(width / 3, height / 2)] = intensity;
+        m.density_mut()[(2 * width / 3, height / 2)] = intensity;
+        //y.density_mut()[(4 * width / 5, height / 2)] = intensity;
+        //k.density_mut()[(3 * width / 5, height / 2)] = intensity / 10.;
 
         sim.step(0.1, 0.0);
         c.step(sim.uv(), 0.1, 0.);
@@ -140,7 +141,7 @@ impl App for TriangleApp {
         let (u, v) = self.sim.uv_mut();
 
         let center = (u.width() / 2, u.height() / 2);
-        let x = center.0 as f32 * ((time / 5.).cos() * 0.8 + 1.);
+        let x = center.0 as f32 * (-(time / 5.).cos() * 0.8 + 1.);
         u[(x as usize, center.1)] += time.cos() * 100.;
 
         // Step
@@ -227,6 +228,7 @@ fn draw_density(
                 //.map(|f| (1. - f - k) / total_dye.max(1.))
                 //.map(|f| 1. - f - k);
                 .map(|f| f + k);
+                //.map(f32::sqrt);
             //.map(|d| (d + 2.).log2());
 
             let mut push = |dx: f32, dy: f32| {
