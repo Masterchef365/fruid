@@ -32,37 +32,41 @@ fn set_bnd(b: i32, x: &mut Array3D) {
     // Third, we find all of the corners () and set them equal to the average of the three
     // adjacent faces
 
-    // Faces
+    type Coord = (usize, usize, usize);
+    fn fill_face(
+        x: &mut Array3D,
+        dim_i: usize,
+        dim_j: usize,
+        coord_fn: fn(Coord) -> Coord,
+        negative: bool,
+    ) {
+        for i in 1..=dim_i {
+            for j in 1..=dim_j {
+                x[coord_fn((0, i, j))] = if negative {
+                    -x[coord_fn((1, i, j))]
+                } else {
+                    x[coord_fn((1, i, j))]
+                };
+                x[coord_fn((dim_i + 1, i, j))] = if negative {
+                    -x[coord_fn((dim_i, i, j))]
+                } else {
+                    x[coord_fn((dim_i, i, j))]
+                };
+            }
+        }
+    }
+
+    fill_face(x, ny, nz, |(d, i, j)| (d, i, j), b == 1);
+    fill_face(x, nx, nz, |(d, i, j)| (i, d, j), b == 2);
+    fill_face(x, nx, ny, |(d, i, j)| (i, j, d), b == 3);
+
+    // TODO: Corners and edges!!!
     /*
-    for i in 1..=ny {
-        for j in 1..=nz {
-            x[(0, i, j)] = if b == 1 { -x[(1, i, j)] } else { x[(1, i, j)] };
-            x[(nx + 1, i, j)] = if b == 1 { -x[(nx, i, j)] } else { x[(nx, i, j)] };
-        }
-    }
-
-    for i in 1..=nx {
-        for j in 1..=nz {
-            x[(i, 0, j)] = if b == 2 { -x[(i, 1, j)] } else { x[(i, 1, j)] };
-            x[(i, ny + 1, j)] = if b == 2 { -x[(i, ny, j)] } else { x[(i, ny, j)] };
-        }
-    }
-
-    for i in 1..=nx {
-        for j in 1..=ny {
-            x[(i, j, 0)] = if b == 3 { -x[(i, j, 1)] } else { x[(i, j, 1)] };
-            x[(i, j, nz + 1)] = if b == 3 { -x[(i, j, nz)] } else { x[(i, j, nz)] };
-        }
-    }
-
-    // Edges
-
     x[(0, 0, 0)] = (x[(1, 0, 0)] + x[(0, 1, 0)] + x[(0, 0, 1)]) / 3.;
     x[(0, ny + 1)] = (x[(1, ny + 1)] + x[(0, ny)]) / 3.;
     x[(nx + 1, 0)] = 0.5 * (x[(nx, 0)] + x[(nx + 1, 1)]);
     x[(nx + 1, ny + 1)] = 0.5 * (x[(nx, ny + 1)] + x[(nx + 1, ny)]);
     */
-    todo!()
 }
 
 fn neighbors((i, j, k): (usize, usize, usize)) -> [(usize, usize, usize); 6] {
@@ -313,12 +317,12 @@ impl FluidSim {
         );
     }
 
-    pub fn uvw(&self) -> (&Array3D, &Array3D) {
-        (&self.u, &self.v)
+    pub fn uvw(&self) -> (&Array3D, &Array3D, &Array3D) {
+        (&self.u, &self.v, &self.w)
     }
 
-    pub fn uvw_mut(&mut self) -> (&mut Array3D, &mut Array3D) {
-        (&mut self.u_prev, &mut self.v_prev)
+    pub fn uvw_mut(&mut self) -> (&mut Array3D, &mut Array3D, &mut Array3D) {
+        (&mut self.u_prev, &mut self.v_prev, &mut self.w_prev)
     }
 
     pub fn width(&self) -> usize {
