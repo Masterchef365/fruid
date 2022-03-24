@@ -1,5 +1,6 @@
 mod array2d;
 pub type Array3D = array2d::Array3D<f32>;
+use rayon::prelude::*;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
 
@@ -81,20 +82,27 @@ fn neighbors((i, j, k): (usize, usize, usize)) -> [(usize, usize, usize); 6] {
 }
 
 fn lin_solve(b: i32, x: &mut Array3D, x0: &Array3D, scratch: &mut Array3D, a: f32, c: f32) {
-    let (nx, ny, nz) = inner_size(x);
+    //let (nx, ny, nz) = inner_size(x);
 
     let mut x = x;
     let mut scratch = scratch;
 
     for _ in 0..20 {
-        for i in 1..=nx {
-            for j in 1..=ny {
-                for k in 1..=nz {
+        scratch
+            .data_mut()
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(idx, scratch_elem)| {
+                let k = idx / (x.width() * x.height());
+                let lev = idx % (x.width() * x.height());
+                let i = lev % x.width();
+                let j = lev / x.width();
+
+                if i >= 1 && i < x.width() - 1 && j >= 1 && j < x.height() - 1 && k >= 1 && k < x.length() - 1 {
                     let neighbor_sum = neighbors((i, j, k)).iter().map(|&idx| x[idx]).sum::<f32>();
-                    scratch[(i, j, k)] = (x0[(i, j, k)] + a * neighbor_sum) / c;
+                    *scratch_elem = (x0[(i, j, k)] + a * neighbor_sum) / c;
                 }
-            }
-        }
+            });
         std::mem::swap(&mut scratch, &mut x);
         set_bnd(b, x);
     }

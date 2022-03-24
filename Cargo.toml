@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 idek = { git = "https://github.com/Masterchef365/idek.git", rev = "64cbedde" }
+rayon = "1.5"

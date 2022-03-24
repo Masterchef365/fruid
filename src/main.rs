@@ -34,7 +34,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut point_gb = GraphicsBuilder::new();
 
-        let dim = 35;
+        let dim = 65;
         let mut sim = FluidSim::new(dim, dim, dim);
 
         let [mut c, mut m, mut y, mut black] =
