@@ -103,6 +103,10 @@ fn diffuse(b: i32, x: &mut Array3D, x0: &Array3D, scratch: &mut Array3D, diff: f
     lin_solve(b, x, x0, scratch, a, 1. + 6. * a);
 }
 
+fn mix(a: f32, b: f32, t: f32) -> f32 {
+    a * (1. - t) + b * t
+}
+
 fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &Array3D, dt: f32) {
     let (nx, ny, nz) = inner_size(d);
 
@@ -110,66 +114,46 @@ fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &A
     let dt1 = dt * ny as f32;
     let dt2 = dt * nz as f32;
 
+    fn advect_bounds(mut v: f32, dim: usize) -> (usize, usize, f32) {
+        if v < 0.5 {
+            v = 0.5
+        }
+
+        if v > dim as f32 + 0.5 {
+            v = dim as f32 + 0.5
+        }
+
+        let i0 = v as usize;
+        let i1 = i0 + 1;
+
+        let s = v - i0 as f32;
+
+        (i0, i1, s)
+    }
+
     for i in 1..=nx {
         for j in 1..=ny {
             for k in 1..=nz {
-                let mut x = i as f32 - dt0 * u[(i, j, k)];
-                let mut y = j as f32 - dt1 * v[(i, j, k)];
-                let mut z = k as f32 - dt2 * w[(i, j, k)];
+                let x = i as f32 - dt0 * u[(i, j, k)];
+                let y = j as f32 - dt1 * v[(i, j, k)];
+                let z = k as f32 - dt2 * w[(i, j, k)];
 
-                if x < 0.5 {
-                    x = 0.5
-                };
-
-                if x > nx as f32 + 0.5 {
-                    x = nx as f32 + 0.5
-                };
-
-                let i0 = x as usize;
-                let i1 = i0 + 1;
-
-                let s1 = x - i0 as f32;
-
-                if y < 0.5 {
-                    y = 0.5
-                };
-                if y > ny as f32 + 0.5 {
-                    y = ny as f32 + 0.5
-                };
-
-                let j0 = y as usize;
-                let j1 = j0 + 1;
-
-                let t1 = y - j0 as f32;
-
-                if z < 0.5 {
-                    z = 0.5
-                };
-                if z > nz as f32 + 0.5 {
-                    z = nz as f32 + 0.5
-                };
-
-                let k0 = z as usize;
-                let k1 = k0 + 1;
-
-                let g1 = z - k0 as f32;
-
-                fn mix(a: f32, b: f32, t: f32) -> f32 {
-                    a * (1. - t) + b * t
-                }
+                let (i0, i1, s) = advect_bounds(x, nx);
+                let (j0, j1, t) = advect_bounds(y, ny);
+                let (k0, k1, g) = advect_bounds(z, nz);
 
                 d[(i, j, k)] = mix(
                     mix(
-                        mix(d0[(i0, j0, k0)], d0[(i1, j0, k0)], t1),
-                        mix(d0[(i0, j1, k0)], d0[(i1, j1, k0)], t1),
-                        s1,
+                        mix(d0[(i0, j0, k0)], d0[(i1, j0, k0)], t),
+                        mix(d0[(i0, j1, k0)], d0[(i1, j1, k0)], t),
+                        s,
                     ),
                     mix(
-                        mix(d0[(i0, j0, k1)], d0[(i1, j0, k1)], t1),
-                        mix(d0[(i0, j1, k1)], d0[(i1, j1, k1)], t1),
-                        s1,
+                        mix(d0[(i0, j0, k1)], d0[(i1, j0, k1)], t),
+                        mix(d0[(i0, j1, k1)], d0[(i1, j1, k1)], t),
+                        s,
                     ),
-                    g1,
+                    g,
                 );
             }
         }
