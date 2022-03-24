@@ -19,24 +19,46 @@ fn inner_size(x: &Array3D) -> (usize, usize, usize) {
 }
 
 fn set_bnd(b: i32, x: &mut Array3D) {
-    /*
     let (nx, ny, nz) = inner_size(x);
 
+    // This is a combinatorics problem.
+
+    // First we find all faces (i, j) and set them equal to the pixel above them, negated if their
+    // dimension is equal to b
+
+    // Second, we find all edges (i) and set them equal to the average of the two adjacent
+    // (recently filled) faces
+
+    // Third, we find all of the corners () and set them equal to the average of the three
+    // adjacent faces
+
     // Faces
+    /*
     for i in 1..=ny {
-        x[(0, i)] = if b == 1 { -x[(1, i)] } else { x[(1, i)] };
-        x[(nx + 1, i)] = if b == 1 { -x[(nx, i)] } else { x[(nx, i)] };
+        for j in 1..=nz {
+            x[(0, i, j)] = if b == 1 { -x[(1, i, j)] } else { x[(1, i, j)] };
+            x[(nx + 1, i, j)] = if b == 1 { -x[(nx, i, j)] } else { x[(nx, i, j)] };
+        }
     }
 
-    // Faces
     for i in 1..=nx {
-        x[(i, 0)] = if b == 2 { -x[(i, 1)] } else { x[(i, 1)] };
-        x[(i, ny + 1)] = if b == 2 { -x[(i, ny)] } else { x[(i, ny)] };
+        for j in 1..=nz {
+            x[(i, 0, j)] = if b == 2 { -x[(i, 1, j)] } else { x[(i, 1, j)] };
+            x[(i, ny + 1, j)] = if b == 2 { -x[(i, ny, j)] } else { x[(i, ny, j)] };
+        }
     }
 
-    // Corners
-    x[(0, 0)] = 0.5 * (x[(1, 0)] + x[(0, 1)]);
-    x[(0, ny + 1)] = 0.5 * (x[(1, ny + 1)] + x[(0, ny)]);
+    for i in 1..=nx {
+        for j in 1..=ny {
+            x[(i, j, 0)] = if b == 3 { -x[(i, j, 1)] } else { x[(i, j, 1)] };
+            x[(i, j, nz + 1)] = if b == 3 { -x[(i, j, nz)] } else { x[(i, j, nz)] };
+        }
+    }
+
+    // Edges
+
+    x[(0, 0, 0)] = (x[(1, 0, 0)] + x[(0, 1, 0)] + x[(0, 0, 1)]) / 3.;
+    x[(0, ny + 1)] = (x[(1, ny + 1)] + x[(0, ny)]) / 3.;
     x[(nx + 1, 0)] = 0.5 * (x[(nx, 0)] + x[(nx + 1, 1)]);
     x[(nx + 1, ny + 1)] = 0.5 * (x[(nx, ny + 1)] + x[(nx + 1, ny)]);
     */
@@ -93,7 +115,7 @@ fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &A
             for k in 1..=nz {
                 let mut x = i as f32 - dt0 * u[(i, j, k)];
                 let mut y = j as f32 - dt1 * v[(i, j, k)];
-                let mut z = j as f32 - dt2 * w[(i, j, k)];
+                let mut z = k as f32 - dt2 * w[(i, j, k)];
 
                 if x < 0.5 {
                     x = 0.5
@@ -106,6 +128,8 @@ fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &A
                 let i0 = x as usize;
                 let i1 = i0 + 1;
 
+                let s1 = x - i0 as f32;
+
                 if y < 0.5 {
                     y = 0.5
                 };
@@ -116,17 +140,37 @@ fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &A
                 let j0 = y as usize;
                 let j1 = j0 + 1;
 
-                let s1 = x - i0 as f32;
-                let s0 = 1. - s1;
-
                 let t1 = y - j0 as f32;
-                let t0 = 1. - t1;
 
-                /*d[(i, j)] = 
-                    + s0 * (t0 * d0[(i0, j0)] + t1 * d0[(i0, j1)])
-                    + s1 * (t0 * d0[(i1, j0)] + t1 * d0[(i1, j1)]);
-                */
-                todo!()
+                if z < 0.5 {
+                    z = 0.5
+                };
+                if z > nz as f32 + 0.5 {
+                    z = nz as f32 + 0.5
+                };
+
+                let k0 = z as usize;
+                let k1 = k0 + 1;
+
+                let g1 = z - k0 as f32;
+
+                fn mix(a: f32, b: f32, t: f32) -> f32 {
+                    a * (1. - t) + b * t
+                }
+
+                d[(i, j, k)] = mix(
+                    mix(
+                        mix(d0[(i0, j0, k0)], d0[(i1, j0, k0)], t1),
+                        mix(d0[(i0, j1, k0)], d0[(i1, j1, k0)], t1),
+                        s1,
+                    ),
+                    mix(
+                        mix(d0[(i0, j0, k1)], d0[(i1, j0, k1)], t1),
+                        mix(d0[(i0, j1, k1)], d0[(i1, j1, k1)], t1),
+                        s1,
+                    ),
+                    g1,
+                );
             }
         }
     }
