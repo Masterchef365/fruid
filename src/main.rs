@@ -34,7 +34,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut point_gb = GraphicsBuilder::new();
 
-        let dim = 25;
+        let dim = 35;
         let mut sim = FluidSim::new(dim, dim, dim);
 
         let [mut c, mut m, mut y, mut black] =
@@ -44,7 +44,7 @@ impl App for TriangleApp {
         let width = sim.width();
         let length = sim.length();
 
-        let intensity = 80. * (width * height * length) as f32;
+        let intensity = 10. * (width * height * length) as f32;
         c.density_mut()[(width / 5, height / 2, length / 2)] = intensity;
         black.density_mut()[(2 * width / 5, height / 2, length / 2)] = intensity / 100.;
         m.density_mut()[(3 * width / 5, height / 2, length / 2)] = intensity;
@@ -121,9 +121,9 @@ impl App for TriangleApp {
         let (u, v, w) = self.sim.uvw_mut();
 
         let pos = (x as usize, center.1, center.2);
-        u[pos] = -45. * (time * 3.).cos();
-        v[pos] = -45. * (time * 3.).sin();
-        w[pos] = -45. * (time * 2.).sin();
+        u[pos] = -450. * (time * 3.).cos();
+        v[pos] = -450. * (time * 3.).sin();
+        w[pos] = -450. * (time * 2.).sin();
 
         // Step
         self.c.density_mut().data_mut().fill(0.0);
@@ -145,10 +145,10 @@ impl App for TriangleApp {
         self.line_gb.clear();
         self.point_gb.clear();
 
-        //draw_density(&mut self.point_gb, self.c.density(), self.m.density(), self.y.density(), self.k.density(), DENSITY_Z);
+        draw_density(&mut self.point_gb, self.c.density(), self.m.density(), self.y.density(), self.black.density());
         draw_velocity_lines(&mut self.line_gb, self.sim.uvw());
 
-        //ctx.update_vertices(self.point_verts, &self.point_gb.vertices)?;
+        ctx.update_vertices(self.point_verts, &self.point_gb.vertices)?;
         ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
         // Render
@@ -156,9 +156,9 @@ impl App for TriangleApp {
             DrawCmd::new(self.point_verts)
                 .indices(self.point_indices)
                 .shader(self.point_shader),
-            DrawCmd::new(self.line_verts)
+            /*DrawCmd::new(self.line_verts)
                 .indices(self.line_indices)
-                .shader(self.line_shader),
+                .shader(self.line_shader)*/
         ])
     }
 
