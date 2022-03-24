@@ -455,6 +455,7 @@ dependencies = [
 [[package]]
 name = "idek"
 version = "0.1.0"
+source = "git+https://github.com/Masterchef365/idek.git?rev=64cbedde#64cbedde7b57e56eb3c8c680d03027568b84cda3"
 dependencies = [
  "anyhow",
  "bytemuck",
