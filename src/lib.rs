@@ -1,8 +1,11 @@
 mod array2d;
 pub type Array3D = array2d::Array3D<f32>;
-use rayon::prelude::*;
+
+use crossbeam::thread::ScopedJoinHandle;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
+
+const LIN_SOLVE_STEPS: usize = 20;
 
 fn add_source(x: &mut Array3D, s: &Array3D, dt: f32) {
     x.data_mut()
@@ -81,38 +84,11 @@ fn neighbors((i, j, k): (usize, usize, usize)) -> [(usize, usize, usize); 6] {
     ]
 }
 
-fn lin_solve(b: i32, x: &mut Array3D, x0: &Array3D, scratch: &mut Array3D, a: f32, c: f32) {
-    //let (nx, ny, nz) = inner_size(x);
-
-    let mut x = x;
-    let mut scratch = scratch;
-
-    for _ in 0..20 {
-        scratch
-            .data_mut()
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(idx, scratch_elem)| {
-                let k = idx / (x.width() * x.height());
-                let lev = idx % (x.width() * x.height());
-                let i = lev % x.width();
-                let j = lev / x.width();
-
-                if i >= 1 && i < x.width() - 1 && j >= 1 && j < x.height() - 1 && k >= 1 && k < x.length() - 1 {
-                    let neighbor_sum = neighbors((i, j, k)).iter().map(|&idx| x[idx]).sum::<f32>();
-                    *scratch_elem = (x0[(i, j, k)] + a * neighbor_sum) / c;
-                }
-            });
-        std::mem::swap(&mut scratch, &mut x);
-        set_bnd(b, x);
-    }
-}
-
-fn diffuse(b: i32, x: &mut Array3D, x0: &Array3D, scratch: &mut Array3D, diff: f32, dt: f32) {
+fn diffuse(b: i32, x: &mut Array3D, x0: &Array3D, accel: &mut LinSolveAccel, diff: f32, dt: f32) {
     let (nx, ny, nz) = inner_size(x);
     let a = dt * diff * nx as f32 * ny as f32 * nz as f32;
 
-    lin_solve(b, x, x0, scratch, a, 1. + 6. * a);
+    accel.lin_solve(b, x, x0, a, 1. + 6. * a);
 }
 
 fn mix(a: f32, b: f32, t: f32) -> f32 {
@@ -173,19 +149,25 @@ fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &A
     set_bnd(b, d);
 }
 
-fn project(u: &mut Array3D, v: &mut Array3D, w: &mut Array3D, p: &mut Array3D, div: &mut Array3D, scratch: &mut Array3D) {
+fn project(
+    u: &mut Array3D,
+    v: &mut Array3D,
+    w: &mut Array3D,
+    p: &mut Array3D,
+    div: &mut Array3D,
+    accel: &mut LinSolveAccel,
+) {
     let (nx, ny, nz) = inner_size(u);
 
     for i in 1..=nx {
         for j in 1..=ny {
             for k in 1..=nz {
-                let diffs = 
-                    u[(i + 1, j, k)] - u[(i - 1, j, k)] 
-                    + v[(i, j + 1, k)] - v[(i, j - 1, k)]
-                    + w[(i, j, k + 1)] - w[(i, j, k - 1)];
+                let diffs = u[(i + 1, j, k)] - u[(i - 1, j, k)] + v[(i, j + 1, k)]
+                    - v[(i, j - 1, k)]
+                    + w[(i, j, k + 1)]
+                    - w[(i, j, k - 1)];
 
-                div[(i, j, k)] =
-                    -0.5 * diffs / nx as f32; // TODO: Why is this just N? Shouldn't this be the total magnitude |nx, ny, nz|?
+                div[(i, j, k)] = -0.5 * diffs / nx as f32; // TODO: Why is this just N? Shouldn't this be the total magnitude |nx, ny, nz|?
 
                 p[(i, j, k)] = 0.0;
             }
@@ -195,7 +177,7 @@ fn project(u: &mut Array3D, v: &mut Array3D, w: &mut Array3D, p: &mut Array3D, d
     set_bnd(0, div);
     set_bnd(0, p);
 
-    lin_solve(0, p, div, scratch, 1., 6.);
+    accel.lin_solve(0, p, div, 1., 6.);
 
     for i in 1..=nx {
         for j in 1..=ny {
@@ -212,9 +194,18 @@ fn project(u: &mut Array3D, v: &mut Array3D, w: &mut Array3D, p: &mut Array3D, d
     set_bnd(3, w);
 }
 
-fn dens_step(x: &mut Array3D, x0: &mut Array3D, u: &Array3D, v: &Array3D, w: &Array3D, scratch: &mut Array3D, diff: f32, dt: f32) {
+fn dens_step(
+    x: &mut Array3D,
+    x0: &mut Array3D,
+    u: &Array3D,
+    v: &Array3D,
+    w: &Array3D,
+    accel: &mut LinSolveAccel,
+    diff: f32,
+    dt: f32,
+) {
     add_source(x, x0, dt);
-    diffuse(0, x0, x, scratch, diff, dt);
+    diffuse(0, x0, x, accel, diff, dt);
     advect(0, x, x0, u, v, w, dt);
 }
 
@@ -225,7 +216,7 @@ fn vel_step(
     u0: &mut Array3D,
     v0: &mut Array3D,
     w0: &mut Array3D,
-    scratch: &mut Array3D,
+    accel: &mut LinSolveAccel,
     visc: f32,
     dt: f32,
 ) {
@@ -233,11 +224,11 @@ fn vel_step(
     add_source(v, v0, dt);
     add_source(w, w0, dt);
 
-    diffuse(1, u0, u, scratch, visc, dt);
-    diffuse(2, v0, v, scratch, visc, dt);
-    diffuse(3, w0, w, scratch, visc, dt);
+    diffuse(1, u0, u, accel, visc, dt);
+    diffuse(2, v0, v, accel, visc, dt);
+    diffuse(3, w0, w, accel, visc, dt);
 
-    project(u0, v0, w0, u, v, scratch);
+    project(u0, v0, w0, u, v, accel);
 
     //std::mem::swap(u0, u);
     //std::mem::swap(v0, v);
@@ -246,13 +237,13 @@ fn vel_step(
     advect(2, v, v0, u0, v0, w0, dt);
     advect(3, w, w0, u0, v0, w0, dt);
 
-    project(u, v, w, u0, v0, scratch);
+    project(u, v, w, u0, v0, accel);
 }
 
 pub struct DensitySim {
     dens: Array3D,
     dens_prev: Array3D,
-    scratch: Array3D,
+    accel: LinSolveAccel,
 }
 
 impl DensitySim {
@@ -261,7 +252,7 @@ impl DensitySim {
         Self {
             dens: arr(),
             dens_prev: arr(),
-            scratch: arr(),
+            accel: LinSolveAccel::new(width, height, length, LIN_SOLVE_STEPS),
         }
     }
 
@@ -272,7 +263,7 @@ impl DensitySim {
             u,
             v,
             w,
-            &mut self.scratch,
+            &mut self.accel,
             diff,
             dt,
         );
@@ -294,7 +285,7 @@ pub struct FluidSim {
     u_prev: Array3D,
     v_prev: Array3D,
     w_prev: Array3D,
-    scratch: Array3D,
+    accel: LinSolveAccel,
 }
 
 impl FluidSim {
@@ -307,7 +298,7 @@ impl FluidSim {
             u_prev: arr(),
             v_prev: arr(),
             w_prev: arr(),
-            scratch: arr(),
+            accel: LinSolveAccel::new(width, height, length, LIN_SOLVE_STEPS),
         }
     }
 
@@ -319,7 +310,7 @@ impl FluidSim {
             &mut self.u_prev,
             &mut self.v_prev,
             &mut self.w_prev,
-            &mut self.scratch,
+            &mut self.accel,
             visc,
             dt,
         );
@@ -343,5 +334,128 @@ impl FluidSim {
 
     pub fn length(&self) -> usize {
         self.u.length()
+    }
+}
+
+struct LinSolveAccel {
+    /// A collection of scratch buffers, data buffers, and their assigned min and max z values
+    bufs: Vec<AccelBuffer>,
+}
+
+struct AccelBuffer {
+    /// Minimum Z in this area
+    min_z: usize,
+    /// Maximum  Z in this area
+    max_z: usize,
+    /// Minimum Z read from this area
+    inner_min_z: usize,
+    /// Maximum Z read from this area
+    inner_max_z: usize,
+    /// Buffer read from and written to
+    x: Array3D,
+    /// Scratch buffer for computations.
+    /// Really we use a backbuffer/frontbuffer approach under the hood.
+    scratch: Array3D,
+    /// Number of steps to advance
+    steps: usize,
+}
+
+impl LinSolveAccel {
+    /// Creates a linear solver which will iterate the given number of steps of the jacobi method.
+    pub fn new(width: usize, height: usize, length: usize, steps: usize) -> Self {
+        let par = std::thread::available_parallelism()
+            .map(|v| v.get())
+            .unwrap_or(1);
+
+        let area_length = length / par;
+        let bufs: Vec<AccelBuffer> = (0..par)
+            .map(|cpu| {
+                let inner_min_z = cpu * area_length;
+                let inner_max_z = inner_min_z + area_length;
+
+                let min_z = inner_min_z.checked_sub(steps).unwrap_or(0);
+                let max_z = (inner_max_z + steps).min(length);
+
+                let x = Array3D::new(width, height, length);
+                let scratch = Array3D::new(width, height, length);
+
+                AccelBuffer {
+                    min_z,
+                    max_z,
+                    inner_min_z,
+                    inner_max_z,
+                    x,
+                    scratch,
+                    steps,
+                }
+            })
+            .collect();
+
+        Self { bufs }
+    }
+
+    fn lin_solve(&mut self, b: i32, x: &mut Array3D, x0: &Array3D, a: f32, c: f32) {
+        // TODO: Write buffers
+
+        let x_ref: &Array3D = x;
+        let bufs = &mut self.bufs;
+        crossbeam::thread::scope(|s| {
+            let threads: Vec<ScopedJoinHandle<AccelBuffer>> = bufs
+                .drain(..)
+                .map(|mut buf| {
+                    s.spawn(move |_| {
+                        for k in buf.min_z..buf.max_z {
+                            for j in 0..x_ref.height() {
+                                for i in 0..x_ref.width() {
+                                    buf.x[(i, j, k)] = x_ref[(i, j, k)];
+                                }
+                            }
+                        }
+
+                        buf.solve(b, x0, a, c);
+                        buf
+                    })
+                })
+                .collect();
+
+            *bufs = threads.into_iter().map(|t| t.join().unwrap()).collect();
+        })
+        .unwrap();
+        drop(x_ref);
+        drop(bufs);
+
+        for buf in &mut self.bufs {
+            for k in buf.inner_min_z..buf.inner_max_z {
+                for j in 0..x.height() {
+                    for i in 0..x.width() {
+                        x[(i, j, k)] = buf.x[(i, j, k)];
+                    }
+                }
+            }
+        }
+
+        // TODO: Read buffers
+    }
+}
+
+impl AccelBuffer {
+    pub fn solve(&mut self, b: i32, x0: &Array3D, a: f32, c: f32) {
+        let (nx, ny, _) = inner_size(x0);
+
+        for _ in 0..self.steps {
+            for k in self.min_z + 1..self.max_z - 1 {
+                for j in 1..=ny {
+                    for i in 1..=nx {
+                        let neighbor_sum = neighbors((i, j, k))
+                            .iter()
+                            .map(|&idx| self.x[idx])
+                            .sum::<f32>();
+                        self.scratch[(i, j, k)] = (x0[(i, j, k)] + a * neighbor_sum) / c;
+                    }
+                }
+            }
+            std::mem::swap(&mut self.scratch, &mut self.x);
+            set_bnd(b, &mut self.x);
+        }
     }
 }
