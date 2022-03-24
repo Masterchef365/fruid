@@ -44,11 +44,11 @@ impl App for TriangleApp {
         let width = sim.width();
         let length = sim.length();
 
-        let intensity = 10. * (width * height * length) as f32;
-        c.density_mut()[(width / 5, height / 2, length / 2)] = intensity;
-        black.density_mut()[(2 * width / 5, height / 2, length / 2)] = intensity / 100.;
-        m.density_mut()[(3 * width / 5, height / 2, length / 2)] = intensity;
-        y.density_mut()[(4 * width / 5, height / 2, length / 2)] = intensity;
+        let intensity = 1. * (width * height * length) as f32;
+        //c.density_mut()[(width / 5, height / 2, length / 2)] = intensity;
+        black.density_mut()[(2 * width / 5, height / 2, length / 2)] = intensity;
+        //m.density_mut()[(3 * width / 5, height / 2, length / 2)] = intensity;
+        //y.density_mut()[(4 * width / 5, height / 2, length / 2)] = intensity;
 
         sim.step(0.1, 0.0);
         c.step(sim.uvw(), 0.1, 0.);
@@ -77,12 +77,14 @@ impl App for TriangleApp {
             DEFAULT_VERTEX_SHADER,
             DEFAULT_FRAGMENT_SHADER,
             Primitive::Lines,
+            Blend::Opaque,
         )?;
 
         let point_shader = ctx.shader(
-            DEFAULT_VERTEX_SHADER,
+            include_bytes!("shaders/unlit.vert.spv"),
             DEFAULT_FRAGMENT_SHADER,
             Primitive::Points,
+            Blend::Additive,
         )?;
 
         Ok(Self {
@@ -121,9 +123,9 @@ impl App for TriangleApp {
         let (u, v, w) = self.sim.uvw_mut();
 
         let pos = (x as usize, center.1, center.2);
-        u[pos] = -450. * (time * 3.).cos();
-        v[pos] = -450. * (time * 3.).sin();
-        w[pos] = -450. * (time * 2.).sin();
+        u[pos] = -4500. * (time * 3.).cos();
+        v[pos] = -4500. * (time * 3.).sin();
+        w[pos] = -4500. * (time * 2.).sin();
 
         // Step
         self.c.density_mut().data_mut().fill(0.0);
@@ -132,13 +134,13 @@ impl App for TriangleApp {
         self.black.density_mut().data_mut().fill(0.0);
 
         let dt = 1e-2;
-        let visc = 0.;
+        let visc = 0.0001;
         let diff = 0.;
 
         self.sim.step(dt, visc);
-        self.c.step(self.sim.uvw(), dt, diff);
-        self.m.step(self.sim.uvw(), dt, diff);
-        self.y.step(self.sim.uvw(), dt, diff);
+        //self.c.step(self.sim.uvw(), dt, diff);
+        //self.m.step(self.sim.uvw(), dt, diff);
+        //self.y.step(self.sim.uvw(), dt, diff);
         self.black.step(self.sim.uvw(), dt, diff);
 
         // Draw
