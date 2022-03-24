@@ -148,14 +148,14 @@ fn advect(b: i32, d: &mut Array3D, d0: &Array3D, u: &Array3D, v: &Array3D, w: &A
 
                 d[(i, j, k)] = mix(
                     mix(
-                        mix(d0[(i0, j0, k0)], d0[(i1, j0, k0)], t),
-                        mix(d0[(i0, j1, k0)], d0[(i1, j1, k0)], t),
-                        s,
+                        mix(d0[(i0, j0, k0)], d0[(i1, j0, k0)], s),
+                        mix(d0[(i0, j1, k0)], d0[(i1, j1, k0)], s),
+                        t,
                     ),
                     mix(
-                        mix(d0[(i0, j0, k1)], d0[(i1, j0, k1)], t),
-                        mix(d0[(i0, j1, k1)], d0[(i1, j1, k1)], t),
-                        s,
+                        mix(d0[(i0, j0, k1)], d0[(i1, j0, k1)], s),
+                        mix(d0[(i0, j1, k1)], d0[(i1, j1, k1)], s),
+                        t,
                     ),
                     g,
                 );
@@ -194,7 +194,7 @@ fn project(u: &mut Array3D, v: &mut Array3D, w: &mut Array3D, p: &mut Array3D, d
             for k in 1..=nz {
                 u[(i, j, k)] -= 0.5 * nx as f32 * (p[(i + 1, j, k)] - p[(i - 1, j, k)]);
                 v[(i, j, k)] -= 0.5 * ny as f32 * (p[(i, j + 1, k)] - p[(i, j - 1, k)]);
-                w[(i, j, k)] -= 0.5 * ny as f32 * (p[(i, j, k + 1)] - p[(i, j, k - 1)]);
+                w[(i, j, k)] -= 0.5 * nz as f32 * (p[(i, j, k + 1)] - p[(i, j, k - 1)]);
             }
         }
     }
