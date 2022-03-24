@@ -1,4 +1,4 @@
-use fruid::{Array2D, FluidSim, DensitySim};
+use fruid::{Array3D, FluidSim, DensitySim};
 use idek::{prelude::*, IndexBuffer};
 mod graphics_builder;
 use graphics_builder::GraphicsBuilder;
@@ -144,7 +144,7 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, c: &Array2D, m: &Array2D, y: &Array2D, k: &Array2D, z: f32) {
+fn draw_density(builder: &mut GraphicsBuilder, c: &Array3D, m: &Array3D, y: &Array3D, k: &Array3D, z: f32) {
     let cell_width = 2. / c.width() as f32;
     let cell_height = 2. / c.height() as f32;
 
@@ -183,7 +183,7 @@ fn draw_density(builder: &mut GraphicsBuilder, c: &Array2D, m: &Array2D, y: &Arr
     }
 }
 
-fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z: f32) {
+fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array3D, &Array3D), z: f32) {
     let cell_width = 2. / u.width() as f32;
     let cell_height = 2. / u.height() as f32;
 

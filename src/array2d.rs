@@ -1,22 +1,26 @@
 #[derive(Clone)]
-pub struct Array2D<T> {
+pub struct Array3D<T> {
     width: usize,
+    height: usize,
+    length: usize,
     data: Vec<T>,
 }
 
-impl<T> Array2D<T> {
-    pub fn from_array(width: usize, data: Vec<T>) -> Self {
-        assert_eq!(data.len() % width, 0);
-        Self { width, data }
+impl<T> Array3D<T> {
+    pub fn from_array(width: usize, height: usize, length: usize, data: Vec<T>) -> Self {
+        assert_eq!(data.len(), width * height * length);
+        Self { width, height, length, data }
     }
 
-    pub fn new(width: usize, height: usize) -> Self
+    pub fn new(width: usize, height: usize, length: usize) -> Self
     where
         T: Default + Copy,
     {
         Self {
             width,
-            data: vec![T::default(); width * height],
+            height,
+            length,
+            data: vec![T::default(); width * height * length],
         }
     }
 
@@ -28,10 +32,11 @@ impl<T> Array2D<T> {
         &mut self.data
     }
 
-    fn calc_index(&self, (x, y): (usize, usize)) -> usize {
+    fn calc_index(&self, (x, y, z): (usize, usize, usize)) -> usize {
         debug_assert!(x < self.width);
-        debug_assert!(y < self.width);
-        x + y * self.width
+        debug_assert!(y < self.height);
+        debug_assert!(z < self.length);
+        x + (y * self.width) + z * (self.width * self.height)
     }
 
     pub fn width(&self) -> usize {
@@ -39,19 +44,23 @@ impl<T> Array2D<T> {
     }
 
     pub fn height(&self) -> usize {
-        self.data.len() / self.width
+        self.height
+    }
+
+    pub fn length(&self) -> usize {
+        self.length
     }
 }
 
-impl<T> std::ops::Index<(usize, usize)> for Array2D<T> {
+impl<T> std::ops::Index<(usize, usize, usize)> for Array3D<T> {
     type Output = T;
-    fn index(&self, pos: (usize, usize)) -> &T {
+    fn index(&self, pos: (usize, usize, usize)) -> &T {
         &self.data[self.calc_index(pos)]
     }
 }
 
-impl<T> std::ops::IndexMut<(usize, usize)> for Array2D<T> {
-    fn index_mut(&mut self, pos: (usize, usize)) -> &mut T {
+impl<T> std::ops::IndexMut<(usize, usize, usize)> for Array3D<T> {
+    fn index_mut(&mut self, pos: (usize, usize, usize)) -> &mut T {
         let idx = self.calc_index(pos);
         &mut self.data[idx]
     }
