@@ -367,11 +367,10 @@ impl LinSolveAccel {
             .map(|v| v.get())
             .unwrap_or(1);
 
-        let area_length = length / par;
         let bufs: Vec<AccelBuffer> = (0..par)
             .map(|cpu| {
-                let inner_min_z = cpu * area_length;
-                let inner_max_z = inner_min_z + area_length;
+                let inner_min_z = cpu * length / par;
+                let inner_max_z = (cpu + 1) * length / par;
 
                 let min_z = inner_min_z.checked_sub(steps).unwrap_or(0);
                 let max_z = (inner_max_z + steps).min(length);
