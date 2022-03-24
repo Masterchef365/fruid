@@ -34,7 +34,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut point_gb = GraphicsBuilder::new();
 
-        let dim = 65;
+        let dim = 35;
         let mut sim = FluidSim::new(dim, dim, dim);
 
         let [mut c, mut m, mut y, mut black] =
@@ -77,7 +77,7 @@ impl App for TriangleApp {
             DEFAULT_VERTEX_SHADER,
             DEFAULT_FRAGMENT_SHADER,
             Primitive::Lines,
-            Blend::Opaque,
+            Blend::Additive,
         )?;
 
         let point_shader = ctx.shader(
@@ -123,9 +123,9 @@ impl App for TriangleApp {
         let (u, v, w) = self.sim.uvw_mut();
 
         let pos = (x as usize, center.1, center.2);
-        u[pos] = -4500. * (time * 3.).cos();
-        v[pos] = -4500. * (time * 3.).sin();
-        w[pos] = -4500. * (time * 2.).sin();
+        u[pos] = -450. * (time * 3.).cos();
+        v[pos] = -450. * (time * 3.).sin();
+        w[pos] = -450. * (time * 2.).sin();
 
         // Step
         self.c.density_mut().data_mut().fill(0.0);
@@ -134,7 +134,7 @@ impl App for TriangleApp {
         self.black.density_mut().data_mut().fill(0.0);
 
         let dt = 1e-2;
-        let visc = 0.0001;
+        let visc = 0.;
         let diff = 0.;
 
         self.sim.step(dt, visc);
@@ -158,9 +158,9 @@ impl App for TriangleApp {
             DrawCmd::new(self.point_verts)
                 .indices(self.point_indices)
                 .shader(self.point_shader),
-            /*DrawCmd::new(self.line_verts)
+            DrawCmd::new(self.line_verts)
                 .indices(self.line_indices)
-                .shader(self.line_shader)*/
+                .shader(self.line_shader)
         ])
     }
 
@@ -226,7 +226,7 @@ fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v, w): (&Array3D, &Array3D, 
 
                 let speed = (u.powf(2.) + v.powf(2.)).sqrt();
 
-                let color = [speed; 3];
+                let color = [u.abs(), v.abs(), w.abs()];
 
                 let mut push = |x: f32, y: f32, z: f32| {
                     let pos = [x, y, z];

@@ -5,7 +5,7 @@ use crossbeam::thread::ScopedJoinHandle;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
 
-const LIN_SOLVE_STEPS: usize = 20;
+const LIN_SOLVE_STEPS: usize = 21;
 
 fn add_source(x: &mut Array3D, s: &Array3D, dt: f32) {
     x.data_mut()
@@ -442,8 +442,8 @@ impl AccelBuffer {
     pub fn solve(&mut self, b: i32, x0: &Array3D, a: f32, c: f32) {
         let (nx, ny, _) = inner_size(x0);
 
-        for step in 0..self.steps {
-            for k in self.min_z + 1 + step..self.max_z - 1 - step {
+        for step in 1..=self.steps {
+            for k in self.min_z + step..self.max_z - step {
                 for j in 1..=ny {
                     for i in 1..=nx {
                         let neighbor_sum = neighbors((i, j, k))
