@@ -1,5 +1,5 @@
-mod array2d;
-pub type Array2D = array2d::Array2D<f32>;
+pub mod array2d;
+type Array2D = array2d::Array2D<f32>;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
 
