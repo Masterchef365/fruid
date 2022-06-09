@@ -45,9 +45,17 @@ fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f3
     for _ in 0..20 {
         for i in 1..=nx {
             for j in 1..=ny {
-                scratch[(i, j)] = (x0[(i, j)]
-                    + a * (x[(i - 1, j)] + x[(i + 1, j)] + x[(i, j - 1)] + x[(i, j + 1)]))
-                    / c;
+
+                let left = x[(i - 1, j)];
+                let right = x[(i + 1, j)];
+                let up = x[(i, j - 1)];
+                let down = x[(i, j + 1)];
+
+                let sum = left + right + up + down;
+
+                let center_prev = x0[(i, j)];
+
+                scratch[(i, j)] = (center_prev + a * sum) / c;
             }
         }
         std::mem::swap(&mut scratch, &mut x);
