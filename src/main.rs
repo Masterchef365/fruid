@@ -34,11 +34,11 @@ fn react(r: &mut f32, g: &mut f32, b: &mut f32, k: &mut f32, u: &mut f32, v: &mu
     //*u = (*k * 18.).sin() * *k * 8.;
     //*v = (*k * 19.).sin() * *k * 8.;
 
-    let d = *u * *u + *v * *v;
+    //let d = *u * *u + *v * *v;
 
-    let m = 0.5;
-    let i = 1.5;
-    let combust_rate = r.min(*g) / (1. + i*(d - m).powf(2.)); // / (1. + *b);
+    let m = 0.2;
+    let i = 2.0;
+    let combust_rate = r.min(*g) / (1. + i*(*b - m).powf(2.)); // / (1. + *b);
 
     *r = -combust_rate;
     *g = -combust_rate;
