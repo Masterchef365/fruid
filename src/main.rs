@@ -30,20 +30,20 @@ struct TriangleApp {
     frame_count: usize,
 }
 
-fn react(c: &mut f32, m: &mut f32, y: &mut f32, k: &mut f32, u: &mut f32, v: &mut f32) {
+fn react(r: &mut f32, g: &mut f32, b: &mut f32, k: &mut f32, u: &mut f32, v: &mut f32) {
     //*u = (*k * 18.).sin() * *k * 8.;
     //*v = (*k * 19.).sin() * *k * 8.;
 
-    let combust_rate = (*c).min(*m).clamp(0., 1.) * 0.9;
+    let d = *u * *u + *v * *v;
 
-    let co = *c + *m;
+    let m = 0.5;
+    let i = 1.5;
+    let combust_rate = r.min(*g) / (1. + i*(d - m).powf(2.)); // / (1. + *b);
 
-    *c = -combust_rate;
-    *m = -combust_rate;
-    *y = combust_rate * 2.;
+    *r = -combust_rate;
+    *g = -combust_rate;
+    *b = combust_rate * 2.;
     *k = 0.;
-
-    let combust_rate = combust_rate * (0.5 + (co * 342803.).cos());
 
     let kaboom = 10_000.;
     *u *= 1. + combust_rate * kaboom;
@@ -159,8 +159,8 @@ impl App for TriangleApp {
             self.m.density_mut(),
             self.y.density_mut(),
             self.k.density_mut(),
-            u, 
-            v
+            u,
+            v,
         );
 
         let dt = 1e-2;
@@ -190,6 +190,7 @@ impl App for TriangleApp {
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
         ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
+        /*
         draw_density_image(
             &format!("{:05}.ppm", self.frame_count),
             self.c.density(),
@@ -197,6 +198,7 @@ impl App for TriangleApp {
             self.y.density(),
             self.k.density(),
         );
+        */
 
         // Render
         Ok(vec![
