@@ -1,5 +1,4 @@
-mod array2d;
-pub type Array2D = array2d::Array2D<f32>;
+pub type Array2D = idek_basics::Array2D<f32>;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
 

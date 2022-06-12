@@ -1,7 +1,6 @@
+use idek_basics::{idek, GraphicsBuilder};
 use fruid::{Array2D, FluidSim, DensitySim};
 use idek::{prelude::*, IndexBuffer};
-mod graphics_builder;
-use graphics_builder::GraphicsBuilder;
 
 fn main() -> Result<()> {
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())

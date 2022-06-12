@@ -408,7 +408,7 @@ name = "fruid"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "idek",
+ "idek_basics",
 ]
 
 [[package]]
@@ -461,6 +461,14 @@ dependencies = [
  "bytemuck",
  "slotmap",
  "watertender",
+]
+
+[[package]]
+name = "idek_basics"
+version = "0.1.0"
+source = "git+http://github.com/Masterchef365/idek-basics.git?rev=6a3e9c74#6a3e9c74aceb526947865b58e38d31412258933e"
+dependencies = [
+ "idek",
 ]
 
 [[package]]
