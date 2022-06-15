@@ -20,19 +20,27 @@ fn set_bnd(b: i32, x: &mut Array2D) {
     let (nx, ny) = inner_size(x);
 
     for i in 1..=ny {
-        x[(0, i)] = if b == 1 { -x[(1, i)] } else { x[(1, i)] };
-        x[(nx + 1, i)] = if b == 1 { -x[(nx, i)] } else { x[(nx, i)] };
+        let s2 = x[(1, i)];
+        let s1 = x[(nx, i)];
+
+        x[(0, i)] = if b == 1 { s1 } else { s1 };
+        x[(nx + 1, i)] = if b == 1 { s2 } else { s2 };
     }
 
     for i in 1..=nx {
-        x[(i, 0)] = if b == 2 { -x[(i, 1)] } else { x[(i, 1)] };
-        x[(i, ny + 1)] = if b == 2 { -x[(i, ny)] } else { x[(i, ny)] };
+        let s1 = x[(i, ny)];
+        let s2 = x[(i, 1)];
+
+        x[(i, 0)] = if b == 2 { s1 } else { s1 };
+        x[(i, ny+1)] = if b == 2 { s2 } else { s2 };
     }
 
+    /*
     x[(0, 0)] = 0.5 * (x[(1, 0)] + x[(0, 1)]);
     x[(0, ny + 1)] = 0.5 * (x[(1, ny + 1)] + x[(0, ny)]);
     x[(nx + 1, 0)] = 0.5 * (x[(nx, 0)] + x[(nx + 1, 1)]);
     x[(nx + 1, ny + 1)] = 0.5 * (x[(nx, ny + 1)] + x[(nx + 1, ny)]);
+    */
 }
 
 fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
