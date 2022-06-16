@@ -2,14 +2,14 @@ pub type Array2D = idek_basics::Array2D<f32>;
 
 // TODO: Transpose the traversal order; this one will be shit with regards to the cache
 
-fn add_source(x: &mut Array2D, s: &Array2D, dt: f32) {
+pub fn add_source(x: &mut Array2D, s: &Array2D, dt: f32) {
     x.data_mut()
         .iter_mut()
         .zip(s.data())
         .for_each(|(x, s)| *x += *s * dt);
 }
 
-fn inner_size(x: &Array2D) -> (usize, usize) {
+pub fn inner_size(x: &Array2D) -> (usize, usize) {
     debug_assert!(x.width() >= 2);
     debug_assert!(x.height() >= 2);
 
@@ -18,13 +18,13 @@ fn inner_size(x: &Array2D) -> (usize, usize) {
 
 #[repr(i32)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum Bounds {
+pub enum Bounds {
     Positive = 0,
     NegX = 1,
     NegY = 2,
 }
 
-fn set_bnd(b: Bounds, x: &mut Array2D) {
+pub fn set_bnd(b: Bounds, x: &mut Array2D) {
     let (nx, ny) = inner_size(x);
 
     for i in 1..=ny {
@@ -43,7 +43,7 @@ fn set_bnd(b: Bounds, x: &mut Array2D) {
     x[(nx + 1, ny + 1)] = 0.5 * (x[(nx, ny + 1)] + x[(nx + 1, ny)]);
 }
 
-fn lin_solve(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
+pub fn lin_solve(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
     let (nx, ny) = inner_size(x);
 
     let mut x = x;
@@ -70,18 +70,18 @@ fn lin_solve(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a:
     }
 }
 
-fn diffuse(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
+pub fn diffuse(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
     let (nx, ny) = inner_size(x);
     let a = dt * diff * nx as f32 * ny as f32;
 
     lin_solve(b, x, x0, scratch, a, 1. + 4. * a);
 }
 
-fn mix(a: f32, b: f32, t: f32) -> f32 {
+pub fn mix(a: f32, b: f32, t: f32) -> f32 {
     (1. - t) * a + t * b
 }
 
-fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
+pub fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
     let (nx, ny) = inner_size(d);
 
     let dt0 = dt * nx as f32;
@@ -125,11 +125,11 @@ fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt
     set_bnd(b, d);
 }
 
-enum DiffSide {
+pub enum DiffSide {
     X, Y
 }
 
-fn diff_acc(r: &mut Array2D, d: &Array2D, scale: f32, side: DiffSide) {
+pub fn diff_acc(r: &mut Array2D, d: &Array2D, scale: f32, side: DiffSide) {
     let (nx, ny) = inner_size(d);
     for i in 1..=nx {
         for j in 1..=ny {
@@ -143,7 +143,7 @@ fn diff_acc(r: &mut Array2D, d: &Array2D, scale: f32, side: DiffSide) {
     }
 }
 
-fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D, scratch: &mut Array2D) {
+pub fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D, scratch: &mut Array2D) {
     let (nx, ny) = inner_size(u);
 
     for i in 1..=nx {
@@ -168,17 +168,15 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D,
     set_bnd(Bounds::NegY, v);
 }
 
-fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
+pub fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
     add_source(x, x0, dt);
-    //std::mem::swap(x0, x);
 
     diffuse(Bounds::Positive, x0, x, scratch, diff, dt);
-    //std::mem::swap(x0, x);
 
     advect(Bounds::Positive, x, x0, u, v, dt);
 }
 
-fn vel_step(
+pub fn vel_step(
     u: &mut Array2D,
     v: &mut Array2D,
     u0: &mut Array2D,
@@ -190,16 +188,11 @@ fn vel_step(
     add_source(u, u0, dt);
     add_source(v, v0, dt);
 
-    //std::mem::swap(u0, u);
     diffuse(Bounds::NegX, u0, u, scratch, visc, dt);
 
-    //std::mem::swap(v0, v);
     diffuse(Bounds::NegY, v0, v, scratch, visc, dt);
 
     project(u0, v0, u, v, scratch);
-
-    //std::mem::swap(u0, u);
-    //std::mem::swap(v0, v);
 
     advect(Bounds::NegX, u, u0, u0, v0, dt);
     advect(Bounds::NegY, v, v0, u0, v0, dt);
