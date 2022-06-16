@@ -16,17 +16,25 @@ fn inner_size(x: &Array2D) -> (usize, usize) {
     (x.width() - 2, x.height() - 2)
 }
 
-fn set_bnd(b: i32, x: &mut Array2D) {
+#[repr(i32)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Bounds {
+    Positive = 0,
+    NegX = 1,
+    NegY = 2,
+}
+
+fn set_bnd(b: Bounds, x: &mut Array2D) {
     let (nx, ny) = inner_size(x);
 
     for i in 1..=ny {
-        x[(0, i)] = if b == 1 { -x[(1, i)] } else { x[(1, i)] };
-        x[(nx + 1, i)] = if b == 1 { -x[(nx, i)] } else { x[(nx, i)] };
+        x[(0, i)] = if b == Bounds::NegX { -x[(1, i)] } else { x[(1, i)] };
+        x[(nx + 1, i)] = if b == Bounds::NegX { -x[(nx, i)] } else { x[(nx, i)] };
     }
 
     for i in 1..=nx {
-        x[(i, 0)] = if b == 2 { -x[(i, 1)] } else { x[(i, 1)] };
-        x[(i, ny + 1)] = if b == 2 { -x[(i, ny)] } else { x[(i, ny)] };
+        x[(i, 0)] = if b == Bounds::NegY { -x[(i, 1)] } else { x[(i, 1)] };
+        x[(i, ny + 1)] = if b == Bounds::NegY { -x[(i, ny)] } else { x[(i, ny)] };
     }
 
     x[(0, 0)] = 0.5 * (x[(1, 0)] + x[(0, 1)]);
@@ -35,7 +43,7 @@ fn set_bnd(b: i32, x: &mut Array2D) {
     x[(nx + 1, ny + 1)] = 0.5 * (x[(nx, ny + 1)] + x[(nx + 1, ny)]);
 }
 
-fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
+fn lin_solve(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f32, c: f32) {
     let (nx, ny) = inner_size(x);
 
     let mut x = x;
@@ -62,14 +70,14 @@ fn lin_solve(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, a: f3
     }
 }
 
-fn diffuse(b: i32, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
+fn diffuse(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
     let (nx, ny) = inner_size(x);
     let a = dt * diff * nx as f32 * ny as f32;
 
     lin_solve(b, x, x0, scratch, a, 1. + 4. * a);
 }
 
-fn advect(b: i32, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
+fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
     let (nx, ny) = inner_size(d);
 
     let dt0 = dt * nx as f32;
@@ -124,10 +132,10 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D,
         }
     }
 
-    set_bnd(0, div);
-    set_bnd(0, p);
+    set_bnd(Bounds::Positive, div);
+    set_bnd(Bounds::Positive, p);
 
-    lin_solve(0, p, div, scratch, 1., 4.);
+    lin_solve(Bounds::Positive, p, div, scratch, 1., 4.);
 
     for i in 1..=nx {
         for j in 1..=ny {
@@ -136,18 +144,18 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D,
         }
     }
 
-    set_bnd(1, u);
-    set_bnd(2, v);
+    set_bnd(Bounds::NegX, u);
+    set_bnd(Bounds::NegY, v);
 }
 
 fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
     add_source(x, x0, dt);
     //std::mem::swap(x0, x);
 
-    diffuse(0, x0, x, scratch, diff, dt);
+    diffuse(Bounds::Positive, x0, x, scratch, diff, dt);
     //std::mem::swap(x0, x);
 
-    advect(0, x, x0, u, v, dt);
+    advect(Bounds::Positive, x, x0, u, v, dt);
 }
 
 fn vel_step(
@@ -163,18 +171,18 @@ fn vel_step(
     add_source(v, v0, dt);
 
     //std::mem::swap(u0, u);
-    diffuse(1, u0, u, scratch, visc, dt);
+    diffuse(Bounds::NegX, u0, u, scratch, visc, dt);
 
     //std::mem::swap(v0, v);
-    diffuse(2, v0, v, scratch, visc, dt);
+    diffuse(Bounds::NegY, v0, v, scratch, visc, dt);
 
     project(u0, v0, u, v, scratch);
 
     //std::mem::swap(u0, u);
     //std::mem::swap(v0, v);
 
-    advect(1, u, u0, u0, v0, dt);
-    advect(2, v, v0, u0, v0, dt);
+    advect(Bounds::NegX, u, u0, u0, v0, dt);
+    advect(Bounds::NegY, v, v0, u0, v0, dt);
 
     project(u, v, u0, v0, scratch);
 }
