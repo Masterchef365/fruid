@@ -125,28 +125,44 @@ fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt
     set_bnd(b, d);
 }
 
+enum DiffSide {
+    X, Y
+}
+
+fn diff_acc(r: &mut Array2D, d: &Array2D, scale: f32, side: DiffSide) {
+    let (nx, ny) = inner_size(d);
+    for i in 1..=nx {
+        for j in 1..=ny {
+            let diff = match side {
+                DiffSide::X => d[(i + 1, j)] - d[(i - 1, j)],
+                DiffSide::Y => d[(i, j + 1)] - d[(i, j - 1)],
+            };
+
+            r[(i, j)] += scale * diff;
+        }
+    }
+}
+
 fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D, scratch: &mut Array2D) {
     let (nx, ny) = inner_size(u);
 
     for i in 1..=nx {
         for j in 1..=ny {
-            div[(i, j)] =
-                -0.5 * (u[(i + 1, j)] - u[(i - 1, j)] + v[(i, j + 1)] - v[(i, j - 1)]) / nx as f32; // TODO: Why is this just N?
-            p[(i, j)] = 0.0;
+            div[(i, j)] = 0.;
+            p[(i, j)] = 0.;
         }
     }
+
+    diff_acc(div, u, -0.5 / nx as f32, DiffSide::X);
+    diff_acc(div, v, -0.5 / ny as f32, DiffSide::Y);
 
     set_bnd(Bounds::Positive, div);
     set_bnd(Bounds::Positive, p);
 
     lin_solve(Bounds::Positive, p, div, scratch, 1., 4.);
 
-    for i in 1..=nx {
-        for j in 1..=ny {
-            u[(i, j)] -= 0.5 * nx as f32 * (p[(i + 1, j)] - p[(i - 1, j)]);
-            v[(i, j)] -= 0.5 * ny as f32 * (p[(i, j + 1)] - p[(i, j - 1)]);
-        }
-    }
+    diff_acc(u, p, -0.5 * nx as f32, DiffSide::X);
+    diff_acc(v, p, -0.5 * ny as f32, DiffSide::Y);
 
     set_bnd(Bounds::NegX, u);
     set_bnd(Bounds::NegY, v);
