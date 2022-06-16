@@ -77,6 +77,10 @@ fn diffuse(b: Bounds, x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, diff
     lin_solve(b, x, x0, scratch, a, 1. + 4. * a);
 }
 
+fn mix(a: f32, b: f32, t: f32) -> f32 {
+    (1. - t) * a + t * b
+}
+
 fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt: f32) {
     let (nx, ny) = inner_size(d);
 
@@ -109,13 +113,13 @@ fn advect(b: Bounds, d: &mut Array2D, d0: &Array2D, u: &Array2D, v: &Array2D, dt
             let j1 = j0 + 1;
 
             let s1 = x - i0 as f32;
-            let s0 = 1. - s1;
-
             let t1 = y - j0 as f32;
-            let t0 = 1. - t1;
 
-            d[(i, j)] = s0 * (t0 * d0[(i0, j0)] + t1 * d0[(i0, j1)])
-                + s1 * (t0 * d0[(i1, j0)] + t1 * d0[(i1, j1)]);
+            d[(i, j)] = mix(
+                mix(d0[(i0, j0)], d0[(i0, j1)], t1),
+                mix(d0[(i1, j0)], d0[(i1, j1)], t1),
+                s1,
+            );
         }
     }
     set_bnd(b, d);
