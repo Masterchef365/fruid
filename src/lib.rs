@@ -223,7 +223,6 @@ impl DensitySim {
     }
 
     pub fn step(&mut self, (u, v): (&Array2D, &Array2D), dt: f32, diff: f32) {
-        return;
         dens_step(
             &mut self.dens,
             &mut self.dens_prev,
