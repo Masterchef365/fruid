@@ -243,6 +243,7 @@ impl DensitySim {
     }
 
     pub fn solve_pde(&mut self, init: bool) {
+        let tmp = self.dens.clone();
         solve_pde(
             &mut self.dens, 
             &self.dens_prev, 
@@ -250,10 +251,7 @@ impl DensitySim {
             0.5, 
             init
         );
-        std::mem::swap(
-            &mut self.scratch,
-            &mut self.dens_prev,
-        );
+        self.dens_prev = tmp;
     }
 }
 
@@ -307,27 +305,22 @@ impl FluidSim {
 }
 
 
+// https://aquaulb.github.io/book_solving_pde_mooc/solving_pde_mooc/notebooks/05_IterativeMethods/05_01_Iteration_and_2D.html
 pub fn solve_pde(x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, courant: f32, init: bool) {
     let (nx, ny) = inner_size(&x);
 
-    const K: usize = 20;
+    for i in 1..=nx {
+        for j in 1..=ny {
+            let sum = x[(i - 1, j)]
+                + x[(i + 1, j)]
+                + x[(i, j - 1)]
+                + x[(i, j + 1)]
+                - 4. * x[(i, j)];
 
-    // here hbar / 2m = 1
-    for _ in 0..K {
-        for i in 1..=nx {
-            for j in 1..=ny {
-                let sum = x[(i - 1, j)]
-                    + x[(i + 1, j)]
-                    + x[(i, j - 1)]
-                    + x[(i, j + 1)];
-
-                scratch[(i, j)] = (sum - x0[(i, j)] * courant) / 4.;
-            }
+            scratch[(i, j)] = -x0[(i, j)] + 2. * x[(i, j)] + 0.5 * courant * sum;
         }
-
-        std::mem::swap(x, scratch);
     }
-    //set_bnd(Bounds::Positive, x);
+    std::mem::swap(x, scratch);
 }
 
 

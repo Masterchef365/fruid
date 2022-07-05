@@ -90,8 +90,9 @@ impl App for TriangleApp {
         let (u, v) = self.sim.uv_mut();
 
         let pos = (x as usize, center.1);
-        u[pos] = -4500. * (time * 3.).cos();
-        v[pos] = -4500. * (time * 3.).sin();
+        let k = -600.;
+        u[pos] = k * (time * 3.).cos();
+        v[pos] = k * (time * 3.).sin();
 
         // Step
         //self.dens.density_mut().data_mut().fill(0.0);
