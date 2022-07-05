@@ -169,7 +169,6 @@ fn project(u: &mut Array2D, v: &mut Array2D, p: &mut Array2D, div: &mut Array2D,
 }
 
 fn dens_step(x: &mut Array2D, x0: &mut Array2D, u: &Array2D, v: &Array2D, scratch: &mut Array2D, diff: f32, dt: f32) {
-    add_source(x, x0, dt);
     //std::mem::swap(x0, x);
 
     diffuse(Bounds::Positive, x0, x, scratch, diff, dt);
@@ -214,12 +213,12 @@ pub struct DensitySim {
 }
 
 impl DensitySim {
-    pub fn new(width: usize, height: usize) -> Self {
-        let arr = || Array2D::new(width, height);
+    pub fn from_grid(dens: Array2D) -> Self {
+        let arr = || Array2D::new(dens.width(), dens.height());
         Self {
-            dens: arr(),
             dens_prev: arr(),
             scratch: arr(),
+            dens,
         }
     }
 
@@ -241,6 +240,17 @@ impl DensitySim {
 
     pub fn density_mut(&mut self) -> &mut Array2D {
         &mut self.dens_prev
+    }
+
+    pub fn solve_pde(&mut self, init: bool) {
+        return;
+        solve_pde(
+            &mut self.dens, 
+            &self.dens_prev, 
+            &mut self.scratch, 
+            0.5, 
+            init
+        );
     }
 }
 
@@ -291,4 +301,38 @@ impl FluidSim {
     pub fn height(&self) -> usize {
         self.u.height()
     }
+}
+
+
+pub fn solve_pde(x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, courant: f32, init: bool) {
+    let (nx, ny) = inner_size(x);
+
+    for i in 1..=nx {
+        for j in 1..=ny {
+
+            let left = x[(i - 1, j)];
+            let right = x[(i + 1, j)];
+            let up = x[(i, j - 1)];
+            let down = x[(i, j + 1)];
+            let center = x[(i, j)];
+
+            // Central Finite Distance
+            let cfd = left + right + up + down - 4. * center;
+
+            let half_cour_cfd = 0.5 * courant * cfd;
+
+            let prev = x0[(i, j)];
+
+            scratch[(i, j)] = if init {
+                center - half_cour_cfd
+            } else {
+                -prev + 2. * center + half_cour_cfd
+            };
+        }
+    }
+
+
+    std::mem::swap(scratch, x);
+
+    //set_bnd(Bounds::Positive, x);
 }
