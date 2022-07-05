@@ -20,8 +20,7 @@ struct TriangleApp {
     tri_gb: GraphicsBuilder,
 
     sim: FluidSim,
-    real: DensitySim,
-    imag: DensitySim,
+    dens: DensitySim,
 
     frame_count: usize,
 }
@@ -40,17 +39,14 @@ impl App for TriangleApp {
         let intensity = 1. * (width * height) as f32;
         dens_grid[(width / 2, height / 2)] = intensity;
 
-        let mut real = DensitySim::from_grid(dens_grid.clone());
-        let mut imag = DensitySim::from_grid(dens_grid);
+        let mut dens = DensitySim::from_grid(dens_grid.clone());
 
         sim.step(0.1, 0.0);
-        real.solve_pde(true);
-        imag.solve_pde(true);
-        real.step(sim.uv(), 0.1, 0.);
-        imag.step(sim.uv(), 0.1, 0.);
+        dens.solve_pde(true);
+        dens.step(sim.uv(), 0.1, 0.);
 
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
-        draw_density(&mut tri_gb, real.density(), imag.density(), DENSITY_Z);
+        draw_density(&mut tri_gb, dens.density(), DENSITY_Z);
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
@@ -70,8 +66,7 @@ impl App for TriangleApp {
             line_gb,
             line_shader,
 
-            real,
-            imag,
+            dens,
 
             tri_verts,
             tri_indices,
@@ -88,7 +83,7 @@ impl App for TriangleApp {
         self.frame_count += 1;
         let time = self.frame_count as f32 / 12.;//ctx.start_time().elapsed().as_secs_f32();
 
-        let d = self.real.density_mut();
+        let d = self.dens.density_mut();
         let center = (d.width() / 2, d.height() / 2);
         let x = center.0 as f32 * ((time / 5.).cos() + 1.);
 
@@ -106,16 +101,14 @@ impl App for TriangleApp {
         let diff = 0.;
 
         self.sim.step(dt, visc);
-        self.real.solve_pde(false);
-        self.real.step(self.sim.uv(), dt, diff);
-        self.imag.solve_pde(false);
-        self.imag.step(self.sim.uv(), dt, diff);
+        self.dens.solve_pde(false);
+        self.dens.step(self.sim.uv(), dt, diff);
 
         // Draw
         self.line_gb.clear();
         self.tri_gb.clear();
 
-        draw_density(&mut self.tri_gb, self.real.density(), self.imag.density(), DENSITY_Z);
+        draw_density(&mut self.tri_gb, self.dens.density(), DENSITY_Z);
         //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
@@ -137,20 +130,18 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, real: &Array2D, imag: &Array2D, z: f32) {
-    let cell_width = 2. / real.width() as f32;
-    let cell_height = 2. / real.height() as f32;
+fn draw_density(builder: &mut GraphicsBuilder, dens: &Array2D, z: f32) {
+    let cell_width = 2. / dens.width() as f32;
+    let cell_height = 2. / dens.height() as f32;
 
-    for i in 0..real.width() {
-        let i_frac = (i as f32 / real.width() as f32) * 2. - 1.;
-        for j in 0..real.height() {
-            let j_frac = (j as f32 / real.height() as f32) * 2. - 1.;
+    for i in 0..dens.width() {
+        let i_frac = (i as f32 / dens.width() as f32) * 2. - 1.;
+        for j in 0..dens.height() {
+            let j_frac = (j as f32 / dens.height() as f32) * 2. - 1.;
 
             // CMY dye
             let color = [
-                real[(i, j)],
-                0.,
-                imag[(i, j)],
+                dens[(i, j)]; 3
             ];
 
             let mut push = |dx: f32, dy: f32| {

@@ -308,34 +308,26 @@ impl FluidSim {
 
 
 pub fn solve_pde(x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, courant: f32, init: bool) {
-    let (nx, ny) = inner_size(x);
+    let (nx, ny) = inner_size(&x);
 
-    for i in 1..=nx {
-        for j in 1..=ny {
+    const K: usize = 20;
 
-            let left = x[(i - 1, j)];
-            let right = x[(i + 1, j)];
-            let up = x[(i, j - 1)];
-            let down = x[(i, j + 1)];
-            let center = x[(i, j)];
+    // here hbar / 2m = 1
+    for _ in 0..K {
+        for i in 1..=nx {
+            for j in 1..=ny {
+                let sum = x[(i - 1, j)]
+                    + x[(i + 1, j)]
+                    + x[(i, j - 1)]
+                    + x[(i, j + 1)];
 
-            // Central Finite Distance
-            let cfd = left + right + up + down - 4. * center;
-
-            let half_cour_cfd = 0.5 * courant * cfd;
-
-            let prev = x0[(i, j)];
-
-            scratch[(i, j)] = if init {
-                center - half_cour_cfd
-            } else {
-                -prev + 2. * center + half_cour_cfd
-            };
+                scratch[(i, j)] = (sum - x0[(i, j)] * courant) / 4.;
+            }
         }
+
+        std::mem::swap(x, scratch);
     }
-
-
-    std::mem::swap(scratch, x);
-
     //set_bnd(Bounds::Positive, x);
 }
+
+
