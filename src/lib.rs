@@ -223,6 +223,7 @@ impl DensitySim {
     }
 
     pub fn step(&mut self, (u, v): (&Array2D, &Array2D), dt: f32, diff: f32) {
+        return;
         dens_step(
             &mut self.dens,
             &mut self.dens_prev,
@@ -231,10 +232,6 @@ impl DensitySim {
             &mut self.scratch,
             diff,
             dt,
-        );
-        std::mem::swap(
-            &mut self.dens,
-            &mut self.dens_prev,
         );
     }
 
@@ -253,6 +250,10 @@ impl DensitySim {
             &mut self.scratch, 
             0.5, 
             init
+        );
+        std::mem::swap(
+            &mut self.scratch,
+            &mut self.dens_prev,
         );
     }
 }
