@@ -243,15 +243,17 @@ impl DensitySim {
     }
 
     pub fn solve_pde(&mut self, init: bool) {
-        let tmp = self.dens.clone();
-        solve_pde(
-            &mut self.dens, 
-            &self.dens_prev, 
-            &mut self.scratch, 
-            0.5, 
-            init
-        );
-        self.dens_prev = tmp;
+        for _ in 0..2 {
+            let tmp = self.dens.clone();
+            solve_pde(
+                &mut self.dens, 
+                &self.dens_prev, 
+                &mut self.scratch, 
+                0.005, 
+                init
+            );
+            self.dens_prev = tmp;
+        }
     }
 }
 
@@ -309,6 +311,16 @@ impl FluidSim {
 pub fn solve_pde(x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, courant: f32, init: bool) {
     let (nx, ny) = inner_size(&x);
 
+    for i in 0..x.width() {
+        x[(i, 0)] = 0.;
+        x[(i, ny)] = 0.;
+    }
+
+    for i in 0..x.height() {
+        x[(0, i)] = 0.;
+        x[(nx, i)] = 0.;
+    }
+
     for i in 1..=nx {
         for j in 1..=ny {
             let sum = x[(i - 1, j)]
@@ -320,6 +332,7 @@ pub fn solve_pde(x: &mut Array2D, x0: &Array2D, scratch: &mut Array2D, courant: 
             scratch[(i, j)] = -x0[(i, j)] + 2. * x[(i, j)] + 0.5 * courant * sum;
         }
     }
+
     std::mem::swap(x, scratch);
 }
 
