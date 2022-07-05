@@ -94,7 +94,7 @@ impl App for TriangleApp {
         v[pos] = -4500. * (time * 3.).sin();
 
         // Step
-        self.dens.density_mut().data_mut().fill(0.0);
+        //self.dens.density_mut().data_mut().fill(0.0);
 
         let dt = 1e-2;
         let visc = 0.;

@@ -232,6 +232,10 @@ impl DensitySim {
             diff,
             dt,
         );
+        std::mem::swap(
+            &mut self.dens,
+            &mut self.dens_prev,
+        );
     }
 
     pub fn density(&self) -> &Array2D {
@@ -243,7 +247,6 @@ impl DensitySim {
     }
 
     pub fn solve_pde(&mut self, init: bool) {
-        return;
         solve_pde(
             &mut self.dens, 
             &self.dens_prev, 
