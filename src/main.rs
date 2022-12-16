@@ -85,9 +85,9 @@ impl App for TriangleApp {
         v[pos] = -4500. * (time * 3.).sin();
 
         let dt = 1e-2;
-        let overstep = 1.5;
+        let overstep = 1.9;
 
-        self.sim.step(dt, overstep, 50);
+        self.sim.step(dt, overstep, 15);
 
         // Draw
         self.line_gb.clear();

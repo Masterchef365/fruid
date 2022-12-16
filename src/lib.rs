@@ -55,8 +55,8 @@ impl FluidSim {
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
         // Advect velocity (u component)
-        for y in 1..self.read.u.height() - 2 {
-            for x in 1..self.read.u.width() - 2 {
+        for y in 1..self.read.u.height() - 1 {
+            for x in 1..self.read.u.width() - 1 {
                 let u = self.read.u[(x, y)];
                 let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.5);
 
@@ -68,8 +68,8 @@ impl FluidSim {
         }
 
         // Advect velocity (v component)
-        for y in 1..self.read.v.height() - 2 {
-            for x in 1..self.read.v.width() - 2 {
+        for y in 1..self.read.v.height() - 1 {
+            for x in 1..self.read.v.width() - 1 {
                 let u = interp(&self.read.u, x as f32 + 0.5, y as f32 - 0.5);
                 let v = self.read.v[(x, y)];
 
@@ -87,8 +87,8 @@ impl FluidSim {
         // Advect smoke
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
-                let u = interp(&self.read.u, x as f32 + 0.5, y as f32);
-                let v = interp(&self.read.v, x as f32, y as f32 + 0.5);
+                let u = interp(&self.read.u, x as f32 + 0.5, y as f32 - 0.5);
+                let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.5);
 
                 let px = x as f32 - u * dt;
                 let py = y as f32 - v * dt;
