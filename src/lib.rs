@@ -1,42 +1,171 @@
 pub type Array2D = idek_basics::Array2D<f32>;
 
-pub struct FluidSim {
+#[derive(Clone)]
+pub struct FluidState {
     u: Array2D,
     v: Array2D,
     smoke: Array2D,
 }
 
+pub struct FluidSim {
+    read: FluidState,
+    write: FluidState,
+}
+
 impl FluidSim {
     pub fn new(width: usize, height: usize) -> Self {
-        let arr = || Array2D::new(width, height);
-        Self {
-            u: Array2D::new(width + 1, height + 1),
-            v: Array2D::new(width + 1, height + 1),
+        let empty = FluidState {
+            u: Array2D::new(width + 1, height),
+            v: Array2D::new(width, height + 1),
             smoke: Array2D::new(width, height),
+        };
+
+        Self {
+            read: empty.clone(),
+            write: empty,
         }
     }
 
-    pub fn step(&mut self, dt: f32, overstep: f32) {
-        todo!()
+    pub fn step(&mut self, dt: f32, overstep: f32, n_iters: u32) {
+        // Copy values from last frame, in order to solve incompressibility
+        self.write.u = self.read.u.clone();
+        self.write.v = self.read.v.clone();
+
+        // Force incompressibility
+        for _ in 0..n_iters {
+            for y in 1..self.write.v.height() - 2 {
+                for x in 1..self.write.u.width() - 2 {
+                    let dx = self.write.u[(x + 1, y)] - self.write.u[(x, y)];
+                    let dy = self.write.v[(x, y + 1)] - self.write.v[(x, y)];
+
+                    let d = overstep * (dx + dy) / 4.;
+
+                    self.write.u[(x, y)] += d;
+                    self.write.u[(x + 1, y)] -= d;
+
+                    self.write.v[(x, y)] += d;
+                    self.write.v[(x, y + 1)] -= d;
+                }
+            }
+        }
+
+        // Swap buffers such that the write buffer contains old data we intend to overwrite 
+        // and the read buffer contains the fluid with incompressibility solved already
+        std::mem::swap(&mut self.read.u, &mut self.write.u);
+        std::mem::swap(&mut self.read.v, &mut self.write.v);
+
+        // Advect velocity (u component)
+        for y in 1..self.read.u.height() - 2 {
+            for x in 1..self.read.u.width() - 2 {
+                let u = self.read.u[(x, y)];
+                let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.5);
+
+                let px = x as f32 - u * dt;
+                let py = y as f32 - v * dt;
+
+                self.write.u[(x, y)] = interp(&self.read.u, px - 0.5, py + 0.5);
+            }
+        }
+
+        // Advect velocity (v component)
+        for y in 1..self.read.v.height() - 2 {
+            for x in 1..self.read.v.width() - 2 {
+                let u = interp(&self.read.u, x as f32 + 0.5, y as f32 - 0.5);
+                let v = self.read.v[(x, y)];
+
+                let px = x as f32 - u * dt;
+                let py = y as f32 - v * dt;
+
+                self.write.v[(x, y)] = interp(&self.read.v, px + 0.5, py - 0.5);
+            }
+        }
+
+        // Swap the written buffers back into read again
+        std::mem::swap(&mut self.read.u, &mut self.write.u);
+        std::mem::swap(&mut self.read.v, &mut self.write.v);
+
+        // Advect smoke
+        for y in 1..self.read.v.height() - 2 {
+            for x in 1..self.read.v.width() - 2 {
+                let u = interp(&self.read.u, x as f32 + 0.5, y as f32);
+                let v = interp(&self.read.v, x as f32, y as f32 + 0.5);
+
+                let px = x as f32 - u * dt;
+                let py = y as f32 - v * dt;
+
+                self.write.smoke[(x, y)] = interp(&self.read.smoke, px, py);
+            }
+        }
+
+        std::mem::swap(&mut self.read.smoke, &mut self.write.smoke);
     }
 
     pub fn uv(&self) -> (&Array2D, &Array2D) {
-        (&self.u, &self.v)
+        (&self.read.u, &self.read.v)
     }
 
     pub fn uv_mut(&mut self) -> (&mut Array2D, &mut Array2D) {
-        (&mut self.u, &mut self.v)
+        (&mut self.read.u, &mut self.read.v)
     }
 
-    pub fn smoke(&mut self) -> &mut Array2D {
-        &mut self.smoke
+    pub fn smoke_mut(&mut self) -> &mut Array2D {
+        &mut self.read.smoke
     }
 
     pub fn width(&self) -> usize {
-        self.u.width()
+        self.read.u.width()
     }
 
     pub fn height(&self) -> usize {
-        self.u.height()
+        self.read.u.height()
     }
 }
+
+/// Linear interpolation
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    (1. - t) * a + t * b
+}
+
+/// Bilinear interpolation of the given grid at the given coordinates
+#[track_caller]
+fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
+    // Bounds enforcement. No panics!
+    let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
+    let tl_y = (y.floor() as isize).clamp(0, grid.height() as isize - 1) as usize;
+
+    // Get corners
+    let tl = grid[(tl_x, tl_y)];
+    let tr = grid[(tl_x + 1, tl_y)];
+    let bl = grid[(tl_x, tl_y + 1)];
+    let br = grid[(tl_x + 1, tl_y + 1)];
+
+    // Bilinear interpolation
+    lerp(
+        lerp(tl, tr, x.fract()), // Top row
+        lerp(bl, br, x.fract()), // Bottom row
+        y.fract(),
+    )
+}
+
+/*
+fn enforce_bounds() {
+        // Set grid boundaries
+        for x in 0..self.write.u.width() {
+        let top = (x, 0);
+        let bottom = (x, self.write.u.height() - 1);
+        self.write.u[top] = 0.;
+        self.write.u[bottom] = 0.;
+        self.write.v[top] = 0.;
+        self.write.v[bottom] = 0.;
+        }
+
+        for y in 0..self.write.u.height() {
+        let left = (0, y);
+        let right = (self.write.u.width() - 1, y);
+        self.write.u[left] = 0.;
+        self.write.u[right] = 0.;
+        self.write.v[left] = 0.;
+        self.write.v[right] = 0.;
+        }
+}
+        */

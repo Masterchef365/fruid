@@ -34,12 +34,12 @@ impl App for TriangleApp {
         let height = sim.height();
         let width = sim.width();
         let intensity = 80. * (width * height) as f32;
-        sim.smoke()[(width / 5, height / 2)] = intensity;
+        sim.smoke_mut()[(width / 5, height / 2)] = intensity;
 
-        sim.step(0.1, 0.0);
+        //sim.step(0.1, 0.0, 10);
 
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
-        draw_density(&mut tri_gb, sim.smoke(), DENSITY_Z);
+        draw_density(&mut tri_gb, sim.smoke_mut(), DENSITY_Z);
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
@@ -74,7 +74,7 @@ impl App for TriangleApp {
         self.frame_count += 1;
         let time = self.frame_count as f32 / 12.; //ctx.start_time().elapsed().as_secs_f32();
 
-        let d = self.sim.smoke();
+        let d = self.sim.smoke_mut();
         let center = (d.width() / 2, d.height() / 2);
         let x = center.0 as f32 * ((time / 5.).cos() + 1.);
 
@@ -85,9 +85,9 @@ impl App for TriangleApp {
         v[pos] = -4500. * (time * 3.).sin();
 
         let dt = 1e-2;
-        let overstep = 1.;
+        let overstep = 1.5;
 
-        self.sim.step(dt, overstep);
+        self.sim.step(dt, overstep, 50);
 
         // Draw
         self.line_gb.clear();
@@ -95,7 +95,7 @@ impl App for TriangleApp {
 
         draw_density(
             &mut self.tri_gb,
-            self.sim.smoke(),
+            self.sim.smoke_mut(),
             DENSITY_Z,
         );
         //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
@@ -119,16 +119,16 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, c: &Array2D, z: f32) {
-    let cell_width = 2. / c.width() as f32;
-    let cell_height = 2. / c.height() as f32;
+fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D, z: f32) {
+    let cell_width = 2. / smoke.width() as f32;
+    let cell_height = 2. / smoke.height() as f32;
 
-    for i in 0..c.width() {
-        let i_frac = (i as f32 / c.width() as f32) * 2. - 1.;
-        for j in 0..c.height() {
-            let j_frac = (j as f32 / c.height() as f32) * 2. - 1.;
+    for i in 0..smoke.width() {
+        let i_frac = (i as f32 / smoke.width() as f32) * 2. - 1.;
+        for j in 0..smoke.height() {
+            let j_frac = (j as f32 / smoke.height() as f32) * 2. - 1.;
 
-            let k = c[(i, j)];
+            let k = smoke[(i, j)];
             let color = [k; 3];
 
             let mut push = |dx: f32, dy: f32| {
