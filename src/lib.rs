@@ -58,7 +58,7 @@ impl FluidSim {
         for y in 1..self.read.u.height() - 1 {
             for x in 1..self.read.u.width() - 1 {
                 let u = self.read.u[(x, y)];
-                let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.0);
+                let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.5);
 
                 let px = x as f32 - u * dt;
                 let py = y as f32 - v * dt;
@@ -70,7 +70,7 @@ impl FluidSim {
         // Advect velocity (v component)
         for y in 1..self.read.v.height() - 1 {
             for x in 1..self.read.v.width() - 1 {
-                let u = interp(&self.read.u, x as f32 + 0.0, y as f32 - 0.5);
+                let u = interp(&self.read.u, x as f32 + 0.5, y as f32 - 0.5);
                 let v = self.read.v[(x, y)];
 
                 let px = x as f32 - u * dt;
