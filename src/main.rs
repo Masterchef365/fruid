@@ -34,12 +34,6 @@ impl App for TriangleApp {
         let mut tri_gb = GraphicsBuilder::new();
 
         let mut sim = FluidSim::new(250, 250);
-
-        let height = sim.height();
-        let width = sim.width();
-        sim.smoke_mut()[(2 * width / 5, height / 2)] = Complex32::from_polar(15000., 0.);
-        sim.smoke_mut()[(3 * width / 5, height / 2)] = Complex32::from_polar(15000., PI / 2.);
-
         //sim.step(0.1, 0.0, 10);
 
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
@@ -91,6 +85,13 @@ impl App for TriangleApp {
 
         let dt = 1e-2;
         let overstep = 1.9;
+
+        let height = self.sim.height();
+        let width = self.sim.width();
+        self.sim.smoke_mut()[(2 * width / 5, height / 2)] += Complex32::from_polar(50., 0.);
+        self.sim.smoke_mut()[(3 * width / 5, height / 2)] += Complex32::from_polar(50., PI / 2.);
+
+
 
         self.sim.step(dt, overstep, 15);
 
