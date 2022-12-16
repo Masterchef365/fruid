@@ -54,14 +54,18 @@ impl FluidSim {
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
-        fn advect(u: &Array2D, v: &Array2D, x: f32, y: f32, dt: f32) -> (f32, f32) {
-            let u = interp(&u, x, y - 0.5);
-            let v = interp(&v, x - 0.5, y);
+        fn advect(u: &Array2D, v: &Array2D, mut x: f32, mut y: f32, dt: f32) -> (f32, f32) {
+            let n = 3;
+            let dt = dt / n as f32;
 
-            let px = x - u * dt;
-            let py = y - v * dt;
+            for _ in 0..n {
+                let u = interp(&u, x, y - 0.5);
+                let v = interp(&v, x - 0.5, y);
+                x -= u * dt;
+                y -= v * dt;
+            }
 
-            (px, py)
+            (x, y)
         }
 
         // Advect velocity (u component)
@@ -87,7 +91,13 @@ impl FluidSim {
         // Advect smoke
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
-                let (px, py) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32 + 0.5, dt);
+                let (px, py) = advect(
+                    &self.read.u,
+                    &self.read.v,
+                    x as f32 + 0.5,
+                    y as f32 + 0.5,
+                    dt,
+                );
                 self.write.smoke[(x, y)] = interp(&self.read.smoke, px - 0.5, py - 0.5);
             }
         }
@@ -143,24 +153,24 @@ fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
 }
 
 /*
-fn enforce_bounds() {
-        // Set grid boundaries
-        for x in 0..self.write.u.width() {
-        let top = (x, 0);
-        let bottom = (x, self.write.u.height() - 1);
-        self.write.u[top] = 0.;
-        self.write.u[bottom] = 0.;
-        self.write.v[top] = 0.;
-        self.write.v[bottom] = 0.;
-        }
-
-        for y in 0..self.write.u.height() {
-        let left = (0, y);
-        let right = (self.write.u.width() - 1, y);
-        self.write.u[left] = 0.;
-        self.write.u[right] = 0.;
-        self.write.v[left] = 0.;
-        self.write.v[right] = 0.;
-        }
+   fn enforce_bounds() {
+// Set grid boundaries
+for x in 0..self.write.u.width() {
+let top = (x, 0);
+let bottom = (x, self.write.u.height() - 1);
+self.write.u[top] = 0.;
+self.write.u[bottom] = 0.;
+self.write.v[top] = 0.;
+self.write.v[bottom] = 0.;
 }
-        */
+
+for y in 0..self.write.u.height() {
+let left = (0, y);
+let right = (self.write.u.width() - 1, y);
+self.write.u[left] = 0.;
+self.write.u[right] = 0.;
+self.write.v[left] = 0.;
+self.write.v[right] = 0.;
+}
+}
+*/

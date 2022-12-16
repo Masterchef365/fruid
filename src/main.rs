@@ -74,7 +74,7 @@ impl App for TriangleApp {
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
         // Modify
         self.frame_count += 1;
-        let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
+        let time = PI / 2.;//self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.sim.smoke_mut();
         let center = (d.width() / 2, d.height() / 2);
@@ -85,8 +85,8 @@ impl App for TriangleApp {
         let pos = (x as usize, center.1);
         let pos = center;
         //let time = 3. * PI / 2.;
-        u[pos] = -450. * (time).cos();
-        v[pos] = -450. * (time).sin();
+        u[pos] = -4500. * (time).cos();
+        v[pos] = -4500. * (time).sin();
 
         let dt = 1e-2;
         let overstep = 1.9;
