@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
-use fruid::{Array2D, FluidSim};
+use idek_basics::Array2D;
+use fruid::FluidSim;
 use idek::{prelude::*, IndexBuffer};
 use idek_basics::{idek, GraphicsBuilder};
 
@@ -123,7 +124,7 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D, z: f32) {
+fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D<f32>, z: f32) {
     let cell_width = 2. / smoke.width() as f32;
     let cell_height = 2. / smoke.height() as f32;
 
@@ -151,7 +152,7 @@ fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D, z: f32) {
     }
 }
 
-fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z: f32) {
+fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D<f32>, &Array2D<f32>), z: f32) {
     let cell_width = 2. / u.width() as f32;
     let cell_height = 2. / u.height() as f32;
 

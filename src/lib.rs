@@ -1,10 +1,10 @@
-pub type Array2D = idek_basics::Array2D<f32>;
+use idek_basics::Array2D;
 
 #[derive(Clone)]
 pub struct FluidState {
-    u: Array2D,
-    v: Array2D,
-    smoke: Array2D,
+    u: Array2D<f32>,
+    v: Array2D<f32>,
+    smoke: Array2D<f32>,
 }
 
 pub struct FluidSim {
@@ -100,15 +100,15 @@ impl FluidSim {
         std::mem::swap(&mut self.read.smoke, &mut self.write.smoke);
     }
 
-    pub fn uv(&self) -> (&Array2D, &Array2D) {
+    pub fn uv(&self) -> (&Array2D<f32>, &Array2D<f32>) {
         (&self.read.u, &self.read.v)
     }
 
-    pub fn uv_mut(&mut self) -> (&mut Array2D, &mut Array2D) {
+    pub fn uv_mut(&mut self) -> (&mut Array2D<f32>, &mut Array2D<f32>) {
         (&mut self.read.u, &mut self.read.v)
     }
 
-    pub fn smoke_mut(&mut self) -> &mut Array2D {
+    pub fn smoke_mut(&mut self) -> &mut Array2D<f32> {
         &mut self.read.smoke
     }
 
@@ -128,7 +128,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 /// Bilinear interpolation of the given grid at the given coordinates
 #[track_caller]
-fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
+fn interp(grid: &Array2D<f32>, x: f32, y: f32) -> f32 {
     // Bounds enforcement. No panics!
     let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
     let tl_y = (y.floor() as isize).clamp(0, grid.height() as isize - 1) as usize;
