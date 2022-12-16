@@ -1,10 +1,11 @@
 use idek_basics::Array2D;
+use num_complex::Complex32;
 
 #[derive(Clone)]
 pub struct FluidState {
     u: Array2D<f32>,
     v: Array2D<f32>,
-    smoke: Array2D<f32>,
+    smoke: Array2D<Complex32>,
 }
 
 pub struct FluidSim {
@@ -93,7 +94,7 @@ impl FluidSim {
                 let px = x as f32 - u * dt;
                 let py = y as f32 - v * dt;
 
-                self.write.smoke[(x, y)] = interp(&self.read.smoke, px, py);
+                self.write.smoke[(x, y)] = cinterp(&self.read.smoke, px, py);
             }
         }
 
@@ -108,7 +109,7 @@ impl FluidSim {
         (&mut self.read.u, &mut self.read.v)
     }
 
-    pub fn smoke_mut(&mut self) -> &mut Array2D<f32> {
+    pub fn smoke_mut(&mut self) -> &mut Array2D<Complex32> {
         &mut self.read.smoke
     }
 
@@ -122,12 +123,16 @@ impl FluidSim {
 }
 
 /// Linear interpolation
+fn clerp(a: Complex32, b: Complex32, t: f32) -> Complex32 {
+    (1. - t) * a + t * b
+}
+
+/// Linear interpolation
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
     (1. - t) * a + t * b
 }
 
 /// Bilinear interpolation of the given grid at the given coordinates
-#[track_caller]
 fn interp(grid: &Array2D<f32>, x: f32, y: f32) -> f32 {
     // Bounds enforcement. No panics!
     let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
@@ -143,6 +148,27 @@ fn interp(grid: &Array2D<f32>, x: f32, y: f32) -> f32 {
     lerp(
         lerp(tl, tr, x.fract()), // Top row
         lerp(bl, br, x.fract()), // Bottom row
+        y.fract(),
+    )
+}
+
+
+/// Bilinear interpolation of the given grid at the given coordinates
+fn cinterp(grid: &Array2D<Complex32>, x: f32, y: f32) -> Complex32 {
+    // Bounds enforcement. No panics!
+    let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
+    let tl_y = (y.floor() as isize).clamp(0, grid.height() as isize - 1) as usize;
+
+    // Get corners
+    let tl = grid[(tl_x, tl_y)];
+    let tr = grid[(tl_x + 1, tl_y)];
+    let bl = grid[(tl_x, tl_y + 1)];
+    let br = grid[(tl_x + 1, tl_y + 1)];
+
+    // Bilinear interpolation
+    clerp(
+        clerp(tl, tr, x.fract()), // Top row
+        clerp(bl, br, x.fract()), // Bottom row
         y.fract(),
     )
 }

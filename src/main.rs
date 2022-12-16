@@ -1,9 +1,10 @@
 use std::f32::consts::PI;
 
-use idek_basics::Array2D;
 use fruid::FluidSim;
 use idek::{prelude::*, IndexBuffer};
+use idek_basics::Array2D;
 use idek_basics::{idek, GraphicsBuilder};
+use num_complex::Complex32;
 
 fn main() -> Result<()> {
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
@@ -36,8 +37,8 @@ impl App for TriangleApp {
 
         let height = sim.height();
         let width = sim.width();
-        let intensity = 1000.;
-        sim.smoke_mut()[(width / 5, height / 2)] = intensity;
+        sim.smoke_mut()[(2 * width / 5, height / 2)] = Complex32::from_polar(5000., 0.);
+        sim.smoke_mut()[(3 * width / 5, height / 2)] = Complex32::from_polar(5000., PI / 2.);
 
         //sim.step(0.1, 0.0, 10);
 
@@ -84,8 +85,7 @@ impl App for TriangleApp {
         let (u, v) = self.sim.uv_mut();
 
         let pos = (x as usize, center.1);
-        let pos = center;
-        let time = 3. * PI / 2.;
+        //let time = 3. * PI / 2.;
         u[pos] = -450. * (time).cos();
         v[pos] = -450. * (time).sin();
 
@@ -98,11 +98,7 @@ impl App for TriangleApp {
         self.line_gb.clear();
         self.tri_gb.clear();
 
-        draw_density(
-            &mut self.tri_gb,
-            self.sim.smoke_mut(),
-            DENSITY_Z,
-        );
+        draw_density(&mut self.tri_gb, self.sim.smoke_mut(), DENSITY_Z);
         draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
@@ -112,8 +108,8 @@ impl App for TriangleApp {
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             DrawCmd::new(self.line_verts)
-            .indices(self.line_indices)
-            .shader(self.line_shader),
+                .indices(self.line_indices)
+                .shader(self.line_shader),
         ])
     }
 
@@ -124,7 +120,7 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D<f32>, z: f32) {
+fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D<Complex32>, z: f32) {
     let cell_width = 2. / smoke.width() as f32;
     let cell_height = 2. / smoke.height() as f32;
 
@@ -134,7 +130,10 @@ fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D<f32>, z: f32) {
             let j_frac = (j as f32 / smoke.height() as f32) * 2. - 1.;
 
             let k = smoke[(i, j)];
-            let color = [k; 3];
+
+            let (r, theta) = k.to_polar();
+            let theta = theta * 4.;
+            let color = hsv_to_rgb(theta.to_degrees() + 180., 1., r);
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, z];
@@ -185,4 +184,50 @@ fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D<f32>, &Array2D
             b.push_indices(&[tip, tail]);
         }
     }
+}
+
+/// https://gist.github.com/fairlight1337/4935ae72bcbcc1ba5c72
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
+    let c = v * s; // Chroma
+    let h_prime = (h / 60.0) % 6.0;
+    let x = c * (1.0 - ((h_prime % 2.0) - 1.0).abs());
+    let m = v - c;
+
+    let (mut r, mut g, mut b);
+
+    if 0. <= h_prime && h_prime < 1. {
+        r = c;
+        g = x;
+        b = 0.0;
+    } else if 1.0 <= h_prime && h_prime < 2.0 {
+        r = x;
+        g = c;
+        b = 0.0;
+    } else if 2.0 <= h_prime && h_prime < 3.0 {
+        r = 0.0;
+        g = c;
+        b = x;
+    } else if 3.0 <= h_prime && h_prime < 4.0 {
+        r = 0.0;
+        g = x;
+        b = c;
+    } else if 4.0 <= h_prime && h_prime < 5.0 {
+        r = x;
+        g = 0.0;
+        b = c;
+    } else if 5.0 <= h_prime && h_prime < 6.0 {
+        r = c;
+        g = 0.0;
+        b = x;
+    } else {
+        r = 0.0;
+        g = 0.0;
+        b = 0.0;
+    }
+
+    r += m;
+    g += m;
+    b += m;
+
+    [r, g, b]
 }
