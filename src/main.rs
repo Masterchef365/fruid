@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use fruid::{Array2D, FluidSim};
 use idek::{prelude::*, IndexBuffer};
 use idek_basics::{idek, GraphicsBuilder};
@@ -81,8 +83,10 @@ impl App for TriangleApp {
         let (u, v) = self.sim.uv_mut();
 
         let pos = (x as usize, center.1);
-        u[pos] = -4500. * (time * 3.).cos();
-        v[pos] = -4500. * (time * 3.).sin();
+        let pos = center;
+        let time = 3. * PI / 2.;
+        u[pos] = -450. * (time).cos();
+        v[pos] = -450. * (time).sin();
 
         let dt = 1e-2;
         let overstep = 1.9;
