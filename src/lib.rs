@@ -87,8 +87,8 @@ impl FluidSim {
         // Advect smoke
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
-                let u = interp(&self.read.u, x as f32 + 0.5, y as f32 - 0.5);
-                let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.5);
+                let u = interp(&self.read.u, x as f32, y as f32 - 0.5);
+                let v = interp(&self.read.v, x as f32 - 0.5, y as f32);
 
                 let px = x as f32 - u * dt;
                 let py = y as f32 - v * dt;
