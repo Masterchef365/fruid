@@ -63,7 +63,7 @@ impl FluidSim {
                 let px = x as f32 - u * dt;
                 let py = y as f32 - v * dt;
 
-                self.write.u[(x, y)] = interp(&self.read.u, px - 0.5, py + 0.5);
+                self.write.u[(x, y)] = interp(&self.read.u, px, py);
             }
         }
 
@@ -76,7 +76,7 @@ impl FluidSim {
                 let px = x as f32 - u * dt;
                 let py = y as f32 - v * dt;
 
-                self.write.v[(x, y)] = interp(&self.read.v, px + 0.5, py - 0.5);
+                self.write.v[(x, y)] = interp(&self.read.v, px, py);
             }
         }
 
