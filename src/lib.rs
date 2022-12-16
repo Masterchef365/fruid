@@ -49,34 +49,34 @@ impl FluidSim {
             }
         }
 
-        // Swap buffers such that the write buffer contains old data we intend to overwrite 
+        // Swap buffers such that the write buffer contains old data we intend to overwrite
         // and the read buffer contains the fluid with incompressibility solved already
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
+        fn advect(u: &Array2D, v: &Array2D, x: f32, y: f32, dt: f32) -> (f32, f32) {
+            let u = interp(&u, x, y - 0.5);
+            let v = interp(&v, x - 0.5, y);
+
+            let px = x - u * dt;
+            let py = y - v * dt;
+
+            (px, py)
+        }
+
         // Advect velocity (u component)
         for y in 1..self.read.u.height() - 1 {
             for x in 1..self.read.u.width() - 1 {
-                let u = self.read.u[(x, y)];
-                let v = interp(&self.read.v, x as f32 - 0.5, y as f32 + 0.5);
-
-                let px = x as f32 - u * dt;
-                let py = y as f32 - v * dt;
-
-                self.write.u[(x, y)] = interp(&self.read.u, px, py);
+                let (px, py) = advect(&self.read.u, &self.read.v, x as f32, y as f32 + 0.5, dt);
+                self.write.u[(x, y)] = interp(&self.read.u, px, py - 0.5);
             }
         }
 
         // Advect velocity (v component)
         for y in 1..self.read.v.height() - 1 {
             for x in 1..self.read.v.width() - 1 {
-                let u = interp(&self.read.u, x as f32 + 0.5, y as f32 - 0.5);
-                let v = self.read.v[(x, y)];
-
-                let px = x as f32 - u * dt;
-                let py = y as f32 - v * dt;
-
-                self.write.v[(x, y)] = interp(&self.read.v, px, py);
+                let (px, py) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32, dt);
+                self.write.v[(x, y)] = interp(&self.read.v, px - 0.5, py);
             }
         }
 
@@ -87,13 +87,8 @@ impl FluidSim {
         // Advect smoke
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
-                let u = interp(&self.read.u, x as f32, y as f32 - 0.5);
-                let v = interp(&self.read.v, x as f32 - 0.5, y as f32);
-
-                let px = x as f32 - u * dt;
-                let py = y as f32 - v * dt;
-
-                self.write.smoke[(x, y)] = interp(&self.read.smoke, px, py);
+                let (px, py) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32 + 0.5, dt);
+                self.write.smoke[(x, y)] = interp(&self.read.smoke, px - 0.5, py - 0.5);
             }
         }
 
