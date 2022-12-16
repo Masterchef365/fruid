@@ -54,33 +54,60 @@ impl FluidSim {
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
-        fn advect(u: &Array2D, v: &Array2D, mut x: f32, mut y: f32, dt: f32) -> (f32, f32) {
+        fn advect(u: &Array2D, v: &Array2D, mut x: f32, mut y: f32, dt: f32) -> (f32, f32, f32) {
             let n = 3;
             let dt = dt / n as f32;
+
+            let mut theta = 0.;
+
+            let mut last_x = x;
+            let mut last_y = y;
 
             for _ in 0..n {
                 let u = interp(&u, x, y - 0.5);
                 let v = interp(&v, x - 0.5, y);
+
                 x -= u * dt;
                 y -= v * dt;
+
+                let len = (x * x + y * y).sqrt();
+                let nx = x / len;
+                let ny = y / len;
+                let dot = nx * last_x + ny * last_y;
+                theta += dot.acos();
             }
 
-            (x, y)
+            (x, y, theta)
         }
 
         // Advect velocity (u component)
         for y in 1..self.read.u.height() - 1 {
             for x in 1..self.read.u.width() - 1 {
-                let (px, py) = advect(&self.read.u, &self.read.v, x as f32, y as f32 + 0.5, dt);
-                self.write.u[(x, y)] = interp(&self.read.u, px, py - 0.5);
+                let (px, py, theta) = advect(&self.read.u, &self.read.v, x as f32, y as f32 + 0.5, dt);
+
+                let du = interp(&self.read.u, px, py - 0.5);
+                let dv = interp(&self.read.v, px - 0.5, py);
+
+                let ddv = du * theta.sin() + dv * theta.cos();
+
+                self.write.v[(x, y)] = ddv;
+                //self.write.v[(x, y)] = dv;
+
             }
         }
 
         // Advect velocity (v component)
         for y in 1..self.read.v.height() - 1 {
             for x in 1..self.read.v.width() - 1 {
-                let (px, py) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32, dt);
-                self.write.v[(x, y)] = interp(&self.read.v, px - 0.5, py);
+                let (px, py, theta) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32, dt);
+
+                let du = interp(&self.read.u, px, py - 0.5);
+                let dv = interp(&self.read.v, px - 0.5, py);
+
+                let ddu = du * theta.cos() - dv * theta.sin();
+
+                self.write.u[(x, y)] = ddu;
+                //self.write.u[(x, y)] = du;
             }
         }
 
@@ -91,7 +118,7 @@ impl FluidSim {
         // Advect smoke
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
-                let (px, py) = advect(
+                let (px, py, _) = advect(
                     &self.read.u,
                     &self.read.v,
                     x as f32 + 0.5,
