@@ -2,7 +2,13 @@ use std::f32::consts::PI;
 
 use fruid::{Array2D, FluidSim};
 use idek::{prelude::*, IndexBuffer};
-use idek_basics::{idek, GraphicsBuilder};
+use idek_basics::{
+    idek::{
+        self,
+        winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
+    },
+    GraphicsBuilder,
+};
 
 fn main() -> Result<()> {
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
@@ -24,6 +30,8 @@ struct TriangleApp {
     sim: FluidSim,
 
     frame_count: usize,
+
+    paused: bool,
 }
 
 impl App for TriangleApp {
@@ -32,6 +40,20 @@ impl App for TriangleApp {
         let mut tri_gb = GraphicsBuilder::new();
 
         let mut sim = FluidSim::new(250, 250);
+
+        let smoke = sim.smoke_mut();
+
+        for y in 50..200 {
+            for x in 200..=240 {
+                smoke[(x, y)] = 5.;
+            }
+        }
+
+        for y in 50..200 {
+            for x in 10..=40 {
+                smoke[(x, y)] = 5.;
+            }
+        }
 
         //sim.step(0.1, 0.0, 10);
 
@@ -63,47 +85,48 @@ impl App for TriangleApp {
             sim,
 
             frame_count: 0,
+            paused: true,
         })
     }
 
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
         // Modify
-        self.frame_count += 1;
-        let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
+        if !self.paused {
+            self.frame_count += 1;
+            /*
+            let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
 
-        let d = self.sim.smoke_mut();
-        let center = (d.width() / 2, d.height() / 2);
-        let x = center.0 as f32 * ((time / 5.).cos() + 1.) * 0.8;
+            let d = self.sim.smoke_mut();
+            let center = (d.width() / 2, d.height() / 2);
+            let x = center.0 as f32 * ((time / 5.).cos() + 1.) * 0.8;
 
-        let (u, v) = self.sim.uv_mut();
+            let (u, v) = self.sim.uv_mut();
 
-        let pos = (x as usize, center.1);
-        let pos = center;
-        //let time = 3. * PI / 2.;
-        //u[pos] = -450. * (time).cos();
-        //v[pos] = -450. * (time).sin();
+            let pos = (x as usize, center.1);
+            let pos = center;
+            */
+            //let time = 3. * PI / 2.;
+            //u[pos] = -450. * (time).cos();
+            //v[pos] = -450. * (time).sin();
 
+            /*
+               let height = self.sim.height();
+               let width = self.sim.width();
+               let intensity = 1.;
+               self.sim.smoke_mut()[(2 * width / 3, height / 3)] += intensity;
+               */
 
-        let height = self.sim.height();
-        let width = self.sim.width();
-        let intensity = 1.;
-        self.sim.smoke_mut()[(2 * width / 3, height / 3)] += intensity;
+            let dt = 1e-2;
+            let overstep = 1.9;
 
-
-        let dt = 1e-2;
-        let overstep = 1.9;
-
-        self.sim.step(dt, overstep, 15);
+            self.sim.step(dt, overstep, 15);
+        }
 
         // Draw
         self.line_gb.clear();
         self.tri_gb.clear();
 
-        draw_density(
-            &mut self.tri_gb,
-            self.sim.smoke_mut(),
-            DENSITY_Z,
-        );
+        draw_density(&mut self.tri_gb, self.sim.smoke_mut(), DENSITY_Z);
         draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
@@ -113,14 +136,35 @@ impl App for TriangleApp {
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             DrawCmd::new(self.line_verts)
-            .indices(self.line_indices)
-            .shader(self.line_shader),
+                .indices(self.line_indices)
+                .shader(self.line_shader),
         ])
     }
 
     fn event(&mut self, ctx: &mut Context, platform: &mut Platform, event: Event) -> Result<()> {
         idek::simple_ortho_cam_ctx(ctx, platform);
         idek::close_when_asked(platform, &event);
+
+        if let Event::Winit(idek::winit::event::Event::WindowEvent {
+            event:
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state,
+                            virtual_keycode: Some(code),
+                            ..
+                        },
+                    ..
+                },
+            ..
+        }) = event
+        {
+            match (code, state) {
+                (VirtualKeyCode::Space, ElementState::Released) => self.paused = !self.paused,
+                _ => (),
+            }
+        }
+
         Ok(())
     }
 }

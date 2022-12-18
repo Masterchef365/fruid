@@ -87,7 +87,7 @@ impl FluidSim {
 
         // Force based on charged smoke
 
-        let charge_x = self.read.u.height() as f32 / 3.;
+        let charge_x = self.read.u.height() as f32 / 2.;
         let charge_y = self.read.u.width() as f32 / 2.;
         let intensity = 135.0;
 
