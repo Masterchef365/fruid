@@ -85,6 +85,61 @@ impl FluidSim {
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
+        // Force based on charged smoke
+
+        let charge_x = self.read.u.height() as f32 / 3.;
+        let charge_y = self.read.u.width() as f32 / 2.;
+        let intensity = 135.0;
+
+        // (u component)
+        for y in 1..self.read.u.height() - 2 {
+            for x in 1..self.read.u.width() - 2 {
+                let px = x as f32;
+                let py = y as f32 + 0.5;
+                let smoke = interp(&self.read.smoke, px, py);
+
+                let diff_x = px - charge_x;
+                let diff_y = py - charge_y;
+
+                let len_sqr = diff_x.powi(2) + diff_y.powi(2);
+
+                if len_sqr > 0.0 {
+                    let du = -diff_x / len_sqr;
+                    let du = du * smoke * intensity;
+
+                    self.write.u[(x, y)] += du;
+                }
+            }
+        }
+
+
+        // (v component)
+        for y in 1..self.read.v.height() - 2 {
+            for x in 1..self.read.v.width() - 2 {
+                let px = x as f32 + 0.5;
+                let py = y as f32;
+                let smoke = interp(&self.read.smoke, px, py);
+
+                let diff_x = px - charge_x;
+                let diff_y = py - charge_y;
+
+                let len_sqr = diff_x.powi(2) + diff_y.powi(2);
+
+                if len_sqr > 0.0 {
+                    let dv = -diff_y / len_sqr;
+                    let dv = dv * smoke * intensity;
+
+                    self.write.v[(x, y)] += dv;
+
+                }
+            }
+        }
+
+
+        // Swap the written buffers back into read again
+        std::mem::swap(&mut self.read.u, &mut self.write.u);
+        std::mem::swap(&mut self.read.v, &mut self.write.v);
+
         // Advect smoke
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
@@ -144,24 +199,24 @@ fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
 }
 
 /*
-fn enforce_bounds() {
-        // Set grid boundaries
-        for x in 0..self.write.u.width() {
-        let top = (x, 0);
-        let bottom = (x, self.write.u.height() - 1);
-        self.write.u[top] = 0.;
-        self.write.u[bottom] = 0.;
-        self.write.v[top] = 0.;
-        self.write.v[bottom] = 0.;
-        }
-
-        for y in 0..self.write.u.height() {
-        let left = (0, y);
-        let right = (self.write.u.width() - 1, y);
-        self.write.u[left] = 0.;
-        self.write.u[right] = 0.;
-        self.write.v[left] = 0.;
-        self.write.v[right] = 0.;
-        }
+   fn enforce_bounds() {
+// Set grid boundaries
+for x in 0..self.write.u.width() {
+let top = (x, 0);
+let bottom = (x, self.write.u.height() - 1);
+self.write.u[top] = 0.;
+self.write.u[bottom] = 0.;
+self.write.v[top] = 0.;
+self.write.v[bottom] = 0.;
 }
-        */
+
+for y in 0..self.write.u.height() {
+let left = (0, y);
+let right = (self.write.u.width() - 1, y);
+self.write.u[left] = 0.;
+self.write.u[right] = 0.;
+self.write.v[left] = 0.;
+self.write.v[right] = 0.;
+}
+}
+*/

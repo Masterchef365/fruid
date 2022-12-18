@@ -33,11 +33,6 @@ impl App for TriangleApp {
 
         let mut sim = FluidSim::new(250, 250);
 
-        let height = sim.height();
-        let width = sim.width();
-        let intensity = 1e4;
-        sim.smoke_mut()[(width / 2, height / 3)] = intensity;
-
         //sim.step(0.1, 0.0, 10);
 
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
@@ -85,8 +80,15 @@ impl App for TriangleApp {
         let pos = (x as usize, center.1);
         let pos = center;
         //let time = 3. * PI / 2.;
-        u[pos] = -450. * (time).cos();
-        v[pos] = -450. * (time).sin();
+        //u[pos] = -450. * (time).cos();
+        //v[pos] = -450. * (time).sin();
+
+
+        let height = self.sim.height();
+        let width = self.sim.width();
+        let intensity = 1.;
+        self.sim.smoke_mut()[(2 * width / 3, height / 3)] += intensity;
+
 
         let dt = 1e-2;
         let overstep = 1.9;
@@ -169,17 +171,17 @@ fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z:
 
             let color = [speed; 3];
 
-            let mut push = |x: f32, y: f32| {
+            let mut push = |x: f32, y: f32, color: [f32; 3]| {
                 let pos = [x, y, z];
                 b.push_vertex(Vertex::new(pos, color))
             };
 
             let tail_x = i_frac + cell_width / 2.;
             let tail_y = j_frac + cell_height / 2.;
-            let tail = push(tail_x, tail_y);
+            let tail = push(tail_x, tail_y, [0.; 3]);
 
             let len = cell_height * 2. / speed;
-            let tip = push(tail_x + u * len, tail_y + v * len);
+            let tip = push(tail_x + u * len, tail_y + v * len, color);
 
             b.push_indices(&[tip, tail]);
         }
