@@ -54,6 +54,7 @@ impl FluidSim {
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
+        /// Transport x and y (relative to fluid grid coordinates) along `u` and `v` by a step `dt`
         fn advect(u: &Array2D, v: &Array2D, x: f32, y: f32, dt: f32) -> (f32, f32) {
             let u = interp(&u, x, y - 0.5);
             let v = interp(&v, x - 0.5, y);
