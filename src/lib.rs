@@ -1,12 +1,14 @@
 pub mod array2d;
+use serde::{Serialize, Deserialize};
 
 pub type Array2D = array2d::Array2D<f32>;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct FluidState {
-    u: Array2D,
-    v: Array2D,
-    smoke: Array2D,
+    pub u: Array2D,
+    pub v: Array2D,
+    #[serde(skip)]
+    pub smoke: Array2D,
 }
 
 pub struct FluidSim {
@@ -96,6 +98,10 @@ impl FluidSim {
         }
 
         std::mem::swap(&mut self.read.smoke, &mut self.write.smoke);
+    }
+
+    pub fn state(&self) -> &FluidState {
+        &self.read
     }
 
     pub fn uv(&self) -> (&Array2D, &Array2D) {

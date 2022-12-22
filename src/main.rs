@@ -1,11 +1,23 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, fs::{create_dir, File}, path::Path, io::BufWriter};
 
-use fruid::{Array2D, FluidSim};
+use anyhow::Ok;
+use fruid::{Array2D, FluidSim, FluidState};
 use idek::{prelude::*, IndexBuffer};
 use idek_basics::{idek, GraphicsBuilder};
 
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt, Default)]
+#[structopt(name = "example", about = "An example of StructOpt usage.")]
+struct Opt {
+    #[structopt(short, long)]
+    output: PathBuf,
+}
+
 fn main() -> Result<()> {
-    launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
+    let opt = Opt::from_args();
+    launch::<Opt, TriangleApp>(Settings::default().args(opt))
 }
 
 const DENSITY_Z: f32 = 0.5;
@@ -23,11 +35,24 @@ struct TriangleApp {
 
     sim: FluidSim,
 
+    output: PathBuf,
+
     frame_count: usize,
 }
 
-impl App for TriangleApp {
-    fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
+fn write_sim_file(state: &FluidState, number: usize, base: impl AsRef<Path>) -> Result<()> {
+    let path = base.as_ref().join(format!("{}.bsl", number));
+    let f = BufWriter::new(File::create(path)?);
+    bincode::serialize_into(f, state)?;
+    Ok(())
+}
+
+impl App<Opt> for TriangleApp {
+    fn init(ctx: &mut Context, _: &mut Platform, args: Opt) -> Result<Self> {
+        if !args.output.is_dir() {
+            create_dir(&args.output);
+        }
+
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
@@ -67,13 +92,14 @@ impl App for TriangleApp {
 
             sim,
 
+            output: args.output,
+
             frame_count: 0,
         })
     }
 
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
         // Modify
-        self.frame_count += 1;
         let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.sim.smoke_mut();
@@ -104,8 +130,12 @@ impl App for TriangleApp {
         );
         draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
+        write_sim_file(self.sim.state(), self.frame_count, &self.output)?;
+
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
         ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
+
+        self.frame_count += 1;
 
         // Render
         Ok(vec![

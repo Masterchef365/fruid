@@ -1,7 +1,18 @@
-#[derive(Clone)]
+use serde::{Serialize, Deserialize};
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Array2D<T> {
     width: usize,
     data: Vec<T>,
+}
+
+impl<T: Default> Default for Array2D<T> {
+    fn default() -> Self {
+        Self {
+            width: 0,
+            data: Vec::default(),
+        }
+    }
 }
 
 impl<T> Array2D<T> {
