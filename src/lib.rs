@@ -16,6 +16,18 @@ pub struct FluidSim {
     write: FluidState,
 }
 
+/// Transport x and y (relative to fluid grid coordinates) along `u` and `v` by a step `dt`
+pub fn advect(u: &Array2D, v: &Array2D, x: f32, y: f32, dt: f32) -> (f32, f32) {
+    let u = interp(&u, x, y - 0.5);
+    let v = interp(&v, x - 0.5, y);
+
+    let px = x - u * dt;
+    let py = y - v * dt;
+
+    (px, py)
+}
+
+
 impl FluidSim {
     pub fn new(width: usize, height: usize) -> Self {
         let empty = FluidState {
@@ -57,17 +69,6 @@ impl FluidSim {
         // and the read buffer contains the fluid with incompressibility solved already
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
-
-        /// Transport x and y (relative to fluid grid coordinates) along `u` and `v` by a step `dt`
-        fn advect(u: &Array2D, v: &Array2D, x: f32, y: f32, dt: f32) -> (f32, f32) {
-            let u = interp(&u, x, y - 0.5);
-            let v = interp(&v, x - 0.5, y);
-
-            let px = x - u * dt;
-            let py = y - v * dt;
-
-            (px, py)
-        }
 
         // Advect velocity (u component)
         for y in 1..self.read.u.height() - 1 {
@@ -152,24 +153,24 @@ pub fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
 }
 
 /*
-fn enforce_bounds() {
-        // Set grid boundaries
-        for x in 0..self.write.u.width() {
-        let top = (x, 0);
-        let bottom = (x, self.write.u.height() - 1);
-        self.write.u[top] = 0.;
-        self.write.u[bottom] = 0.;
-        self.write.v[top] = 0.;
-        self.write.v[bottom] = 0.;
-        }
-
-        for y in 0..self.write.u.height() {
-        let left = (0, y);
-        let right = (self.write.u.width() - 1, y);
-        self.write.u[left] = 0.;
-        self.write.u[right] = 0.;
-        self.write.v[left] = 0.;
-        self.write.v[right] = 0.;
-        }
+   fn enforce_bounds() {
+// Set grid boundaries
+for x in 0..self.write.u.width() {
+let top = (x, 0);
+let bottom = (x, self.write.u.height() - 1);
+self.write.u[top] = 0.;
+self.write.u[bottom] = 0.;
+self.write.v[top] = 0.;
+self.write.v[bottom] = 0.;
 }
-        */
+
+for y in 0..self.write.u.height() {
+let left = (0, y);
+let right = (self.write.u.width() - 1, y);
+self.write.u[left] = 0.;
+self.write.u[right] = 0.;
+self.write.v[left] = 0.;
+self.write.v[right] = 0.;
+}
+}
+*/

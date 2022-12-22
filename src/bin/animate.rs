@@ -1,7 +1,7 @@
 use std::{path::Path, io::{BufReader, BufWriter}, fs::File};
 
 use anyhow::Result;
-use fruid::FluidState;
+use fruid::{FluidState, interp, advect};
 
 
 use std::path::PathBuf;
@@ -28,11 +28,15 @@ fn main() -> Result<()> {
 
     let mut parts = init_particles(&example, &input_image);
 
+    let dt = 0.1;
+
     for i in 0..n {
         println!("{}/{}", i+1, n);
-        let path = args.record.join(format!("{}.png", i));
-        particle_image(&example, &parts, &input_image);
-        write_png(&path, &input_image)?;
+        let path = args.record.join(format!("{}.png", n - i));
+        let state = read_file(&args.record, n - i)?;
+        step_particles(&state, &mut parts, dt);
+        let out_img = particle_image(&example, &parts, &input_image);
+        write_png(&path, &out_img)?;
     }
 
     Ok(())
@@ -48,6 +52,7 @@ fn particle_image(example: &FluidState, parts: &[[f32; 2]], input_img: &Image) -
     for y in 0..input_img.height() {
         for x in 0..input_img.width() {
             let pixel = input_img[(x, y)];
+
             let [px, py] = parts[n];
 
             let ux = ((px - 0.5) / w) * input_img.width() as f32;
@@ -60,6 +65,8 @@ fn particle_image(example: &FluidState, parts: &[[f32; 2]], input_img: &Image) -
                 let pos = (ux as usize, uy as usize);
                 output_img[pos] = pixel;
             }
+
+            n += 1;
         }
     }
 
@@ -67,7 +74,16 @@ fn particle_image(example: &FluidState, parts: &[[f32; 2]], input_img: &Image) -
 }
 
 fn step_particles(state: &FluidState, parts: &mut [[f32; 2]], dt: f32) {
-    todo!()
+    let w = state.u.width() as f32 - 1.;
+    let h = state.v.height() as f32 - 1.;
+
+    for [x, y] in parts {
+        if x.floor() > 0.5 && x.floor() < w - 1. && y.floor() > 0.5 && y.floor() < h - 1. {
+            let (ax, ay) = advect(&state.u, &state.v, *x, *y, dt);
+            *x = ax;
+            *y = ay;
+        }
+    }
 }
 
 fn init_particles(example: &FluidState, image: &Image) -> Vec<[f32; 2]> {
