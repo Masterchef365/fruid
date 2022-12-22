@@ -1,4 +1,6 @@
-pub type Array2D = idek_basics::Array2D<f32>;
+pub mod array2d;
+
+pub type Array2D = array2d::Array2D<f32>;
 
 #[derive(Clone)]
 pub struct FluidState {
