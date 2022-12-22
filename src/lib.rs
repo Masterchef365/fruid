@@ -132,7 +132,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 /// Bilinear interpolation of the given grid at the given coordinates
 #[track_caller]
-fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
+pub fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
     // Bounds enforcement. No panics!
     let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
     let tl_y = (y.floor() as isize).clamp(0, grid.height() as isize - 1) as usize;
