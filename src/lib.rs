@@ -63,6 +63,20 @@ impl FluidSim {
                     self.write.v[(x, y + 1)] -= d;
                 }
             }
+
+            let h = self.write.v.height();
+            for (y, smpl) in [(1, 2), (h - 2, h - 3)] {
+                for i in 0..self.write.v.width() {
+                    self.write.v[(i, y)] = -self.write.v[(i, smpl)];
+                }
+            }
+
+            let w = self.write.u.width();
+            for (x, smpl) in [(1, 2), (w - 2, w - 3)] {
+                for i in 0..self.write.u.height() {
+                    self.write.u[(x, i)] = -self.write.u[(smpl, i)];
+                }
+            }
         }
 
         // Swap buffers such that the write buffer contains old data we intend to overwrite

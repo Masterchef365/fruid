@@ -108,11 +108,13 @@ impl App<Opt> for TriangleApp {
 
         let (u, v) = self.sim.uv_mut();
 
-        let pos = (x as usize, center.1);
-        let pos = center;
+        for x in 150..150+30 {
+        for y in 150..150+30 {
         //let time = 3. * PI / 2.;
-        u[pos] = -450. * (time).cos();
-        v[pos] = -450. * (time).sin();
+            u[(x, y)] = 0.;
+            v[(x, y)] = 200.;
+        }
+        }
 
         let dt = 1e-2;
         let overstep = 1.9;
