@@ -14,6 +14,7 @@ type Image = fruid::array2d::Array2D<[u8; 3]>;
 struct Opt {
     #[structopt(short, long)]
     record: PathBuf,
+
     #[structopt(short, long)]
     image: PathBuf,
 }
@@ -25,17 +26,70 @@ fn main() -> Result<()> {
     let input_image = load_png(&args.image)?;
     let example = read_file(&args.record, 0)?;
 
-    dbg!(input_image.width());
-    dbg!(input_image.height());
+    let mut parts = init_particles(&example, &input_image);
 
-    write_png("ok.png", &input_image)?;
+    for i in 0..n {
+        println!("{}/{}", i+1, n);
+        let path = args.record.join(format!("{}.png", i));
+        particle_image(&example, &parts, &input_image);
+        write_png(&path, &input_image)?;
+    }
 
     Ok(())
 }
 
+fn particle_image(example: &FluidState, parts: &[[f32; 2]], input_img: &Image) -> Image {
+    let mut output_img = Image::new(input_img.width(), input_img.height());
+
+    let w = example.u.width() as f32 - 1.;
+    let h = example.v.height() as f32 - 1.;
+
+    let mut n = 0;
+    for y in 0..input_img.height() {
+        for x in 0..input_img.width() {
+            let pixel = input_img[(x, y)];
+            let [px, py] = parts[n];
+
+            let ux = ((px - 0.5) / w) * input_img.width() as f32;
+            let uy = ((py - 0.5) / h) * input_img.height() as f32;
+
+            let x_bound = ux.floor() > 0. && ux.floor() < input_img.width() as f32;
+            let y_bound = uy.floor() > 0. && uy.floor() < input_img.height() as f32;
+
+            if x_bound && y_bound {
+                let pos = (ux as usize, uy as usize);
+                output_img[pos] = pixel;
+            }
+        }
+    }
+
+    output_img
+}
+
+fn step_particles(state: &FluidState, parts: &mut [[f32; 2]], dt: f32) {
+    todo!()
+}
+
+fn init_particles(example: &FluidState, image: &Image) -> Vec<[f32; 2]> {
+    let w = example.u.width() as f32 - 1.;
+    let h = example.v.height() as f32 - 1.;
+
+    let mut parts = vec![];
+
+    for y in 0..image.height() {
+        for x in 0..image.width() {
+            let px = (x as f32 / image.width() as f32) * w + 0.5;
+            let py = (y as f32 / image.height() as f32) * h + 0.5;
+            parts.push([px, py]);
+        }
+    }
+    
+    parts
+}
+
 fn read_file(base: impl AsRef<Path>, number: usize) -> Result<FluidState> {
     let path = base.as_ref().join(format!("{}.bsl", number));
-    let mut f = BufReader::new(File::open(path)?);
+    let f = BufReader::new(File::open(path)?);
     Ok(bincode::deserialize_from(f)?)
 }
 
