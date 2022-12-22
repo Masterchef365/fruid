@@ -28,13 +28,13 @@ fn main() -> Result<()> {
 
     let mut parts = init_particles(&example, &input_image);
 
-    let dt = 0.1;
+    let dt = 1e-2;
 
     for i in 0..n {
         println!("{}/{}", i+1, n);
-        let path = args.record.join(format!("{}.png", n - i));
+        let path = args.record.join(format!("{:04}.png", n - i));
         let state = read_file(&args.record, n - i)?;
-        step_particles(&state, &mut parts, dt);
+        step_particles(&state, &mut parts, -dt);
         let out_img = particle_image(&example, &parts, &input_image);
         write_png(&path, &out_img)?;
     }
