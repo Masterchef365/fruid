@@ -1,8 +1,11 @@
-use std::{path::Path, io::{BufReader, BufWriter}, fs::File};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+    path::Path,
+};
 
 use anyhow::Result;
-use fruid::{FluidState, interp, advect};
-
+use fruid::{advect, interp, FluidState};
 
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -31,12 +34,18 @@ fn main() -> Result<()> {
     let dt = 1e-2;
 
     for i in 0..n {
-        println!("{}/{}", i+1, n);
+        println!("{}/{}", i + 1, n);
         let path = args.record.join(format!("{:04}.png", n - i));
         let state = read_file(&args.record, n - i)?;
         step_particles(&state, &mut parts, -dt);
         let out_img = particle_image(&example, &parts, &input_image);
         write_png(&path, &out_img)?;
+    }
+
+    // Add another second of the final frame
+    for i in n..60 + n {
+        let path = args.record.join(format!("{:04}.png", i));
+        write_png(&path, &input_image)?;
     }
 
     Ok(())
@@ -99,7 +108,7 @@ fn init_particles(example: &FluidState, image: &Image) -> Vec<[f32; 2]> {
             parts.push([px, py]);
         }
     }
-    
+
     parts
 }
 
@@ -157,4 +166,3 @@ fn write_png(path: impl AsRef<Path>, image: &Image) -> Result<()> {
 
     Ok(())
 }
-
