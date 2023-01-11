@@ -10,6 +10,8 @@ pub struct FluidState {
 pub struct FluidSim {
     read: FluidState,
     write: FluidState,
+    frame: usize,
+    first_mass: Option<f32>,
 }
 
 impl FluidSim {
@@ -21,8 +23,10 @@ impl FluidSim {
         };
 
         Self {
+            first_mass: None,
             read: empty.clone(),
             write: empty,
+            frame: 0,
         }
     }
 
@@ -125,7 +129,15 @@ impl FluidSim {
                 mass += self.write.smoke[(x, y)];
             }
         }
-        dbg!(mass);
+
+        if let Some(first_mass) = self.first_mass {
+            self.frame += 1;
+            let lost_mass = first_mass - mass;
+            let loss_rate = lost_mass / self.frame as f32;
+            println!("{:.03}, {:.03}, {:.03}", mass, lost_mass, loss_rate);
+        } else {
+            self.first_mass = Some(mass);
+        }
 
         std::mem::swap(&mut self.read.smoke, &mut self.write.smoke);
     }
