@@ -54,13 +54,26 @@ impl FluidSim {
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
-        fn advect(u: &Array2D, v: &Array2D, mut x: f32, mut y: f32, dt: f32) -> (f32, f32) {
+        fn advect(
+            u: &Array2D,
+            v: &Array2D,
+            //last_u: &Array2D,
+            //last_v: &Array2D,
+            mut x: f32,
+            mut y: f32,
+            dt: f32,
+        ) -> (f32, f32) {
+            let last_u = u;
+            let last_v = v;
             let n = 3;
             let dt = dt / n as f32;
 
-            for _ in 0..n {
-                let u = interp(&u, x, y - 0.5);
-                let v = interp(&v, x - 0.5, y);
+            for i in 0..=n {
+                let i = i as f32 / n as f32;
+                let yy = y - 0.5;
+                let xx = x - 0.5;
+                let u = lerp(bilinear(&u, x, yy), bilinear(&last_u, x, yy), i);
+                let v = lerp(bilinear(&v, xx, y), bilinear(&last_v, xx, y), i);
                 x -= u * dt;
                 y -= v * dt;
             }
@@ -72,7 +85,7 @@ impl FluidSim {
         for y in 1..self.read.u.height() - 1 {
             for x in 1..self.read.u.width() - 1 {
                 let (px, py) = advect(&self.read.u, &self.read.v, x as f32, y as f32 + 0.5, dt);
-                self.write.u[(x, y)] = interp(&self.read.u, px, py - 0.5);
+                self.write.u[(x, y)] = bilinear(&self.read.u, px, py - 0.5);
             }
         }
 
@@ -80,7 +93,7 @@ impl FluidSim {
         for y in 1..self.read.v.height() - 1 {
             for x in 1..self.read.v.width() - 1 {
                 let (px, py) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32, dt);
-                self.write.v[(x, y)] = interp(&self.read.v, px - 0.5, py);
+                self.write.v[(x, y)] = bilinear(&self.read.v, px - 0.5, py);
             }
         }
 
@@ -98,7 +111,7 @@ impl FluidSim {
                     y as f32 + 0.5,
                     dt,
                 );
-                self.write.smoke[(x, y)] = interp(&self.read.smoke, px - 0.5, py - 0.5);
+                self.write.smoke[(x, y)] = bilinear(&self.read.smoke, px - 0.5, py - 0.5);
             }
         }
 
@@ -133,7 +146,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 
 /// Bilinear interpolation of the given grid at the given coordinates
 #[track_caller]
-fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
+fn bilinear(grid: &Array2D, x: f32, y: f32) -> f32 {
     // Bounds enforcement. No panics!
     let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
     let tl_y = (y.floor() as isize).clamp(0, grid.height() as isize - 1) as usize;
