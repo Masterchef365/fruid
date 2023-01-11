@@ -27,45 +27,49 @@ impl FluidSim {
     }
 
     pub fn step(&mut self, dt: f32, overstep: f32, n_iters: u32) {
-        // Copy values from last frame, in order to solve incompressibility
-        self.write.u = self.read.u.clone();
-        self.write.v = self.read.v.clone();
-
         // Force incompressibility
         for _ in 0..n_iters {
-            for y in 1..self.write.v.height() - 2 {
-                for x in 1..self.write.u.width() - 2 {
-                    let dx = self.write.u[(x + 1, y)] - self.write.u[(x, y)];
-                    let dy = self.write.v[(x, y + 1)] - self.write.v[(x, y)];
+            for y in 1..self.read.v.height() - 2 {
+                for x in 1..self.read.u.width() - 2 {
+                    let dx = self.read.u[(x + 1, y)] - self.read.u[(x, y)];
+                    let dy = self.read.v[(x, y + 1)] - self.read.v[(x, y)];
 
                     let d = overstep * (dx + dy) / 4.;
 
-                    self.write.u[(x, y)] += d;
-                    self.write.u[(x + 1, y)] -= d;
+                    self.read.u[(x, y)] += d;
+                    self.read.u[(x + 1, y)] -= d;
 
-                    self.write.v[(x, y)] += d;
-                    self.write.v[(x, y + 1)] -= d;
+                    self.read.v[(x, y)] += d;
+                    self.read.v[(x, y + 1)] -= d;
+                }
+            }
+
+            // Boundary conditions
+            let h = self.read.v.height();
+            for (y, smpl) in [(1, 2), (h - 2, h - 3)] {
+                for i in 0..self.read.v.width() {
+                    self.read.v[(i, y)] = -self.read.v[(i, smpl)];
+                }
+            }
+
+            let w = self.read.u.width();
+            for (x, smpl) in [(1, 2), (w - 2, w - 3)] {
+                for i in 0..self.read.u.height() {
+                    self.read.u[(x, i)] = -self.read.u[(smpl, i)];
                 }
             }
         }
 
-        // Swap buffers such that the write buffer contains old data we intend to overwrite
-        // and the read buffer contains the fluid with incompressibility solved already
-        std::mem::swap(&mut self.read.u, &mut self.write.u);
-        std::mem::swap(&mut self.read.v, &mut self.write.v);
-
         fn advect(
             u: &Array2D,
             v: &Array2D,
-            //last_u: &Array2D,
-            //last_v: &Array2D,
+            last_u: &Array2D,
+            last_v: &Array2D,
             mut x: f32,
             mut y: f32,
             dt: f32,
         ) -> (f32, f32) {
-            let last_u = u;
-            let last_v = v;
-            let n = 3;
+            let n = 10;
             let dt = dt / n as f32;
 
             for i in 0..=n {
@@ -81,10 +85,13 @@ impl FluidSim {
             (x, y)
         }
 
+        let old_u = self.write.u.clone();
+        let old_v = self.write.v.clone();
+
         // Advect velocity (u component)
         for y in 1..self.read.u.height() - 1 {
             for x in 1..self.read.u.width() - 1 {
-                let (px, py) = advect(&self.read.u, &self.read.v, x as f32, y as f32 + 0.5, dt);
+                let (px, py) = advect(&self.read.u, &self.read.v, &old_u, &old_v, x as f32, y as f32 + 0.5, dt);
                 self.write.u[(x, y)] = bilinear(&self.read.u, px, py - 0.5);
             }
         }
@@ -92,7 +99,7 @@ impl FluidSim {
         // Advect velocity (v component)
         for y in 1..self.read.v.height() - 1 {
             for x in 1..self.read.v.width() - 1 {
-                let (px, py) = advect(&self.read.u, &self.read.v, x as f32 + 0.5, y as f32, dt);
+                let (px, py) = advect(&self.read.u, &self.read.v, &old_u, &old_v, x as f32 + 0.5, y as f32, dt);
                 self.write.v[(x, y)] = bilinear(&self.read.v, px - 0.5, py);
             }
         }
@@ -102,18 +109,23 @@ impl FluidSim {
         std::mem::swap(&mut self.read.v, &mut self.write.v);
 
         // Advect smoke
+        let mut mass = 0.;
         for y in 1..self.read.v.height() - 2 {
             for x in 1..self.read.v.width() - 2 {
                 let (px, py) = advect(
                     &self.read.u,
                     &self.read.v,
+                    &old_u,
+                    &old_v,
                     x as f32 + 0.5,
                     y as f32 + 0.5,
                     dt,
                 );
                 self.write.smoke[(x, y)] = bilinear(&self.read.smoke, px - 0.5, py - 0.5);
+                mass += self.write.smoke[(x, y)];
             }
         }
+        dbg!(mass);
 
         std::mem::swap(&mut self.read.smoke, &mut self.write.smoke);
     }
