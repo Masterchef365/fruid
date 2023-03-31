@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, collections::HashSet};
 
 use fruid::{FluidSim, SmokeSim};
 use idek::{prelude::*, IndexBuffer};
@@ -8,6 +8,9 @@ use idek_basics::{
 };
 
 fn main() -> Result<()> {
+    //plot_fill_circle((0,0), 0, |pt| {dbg!(pt);});
+    //Ok(())
+
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
 }
 
@@ -48,7 +51,7 @@ impl App for TriangleApp {
         let width = sim.width();
 
         // Decide behaviours and colors
-        let n = 5;
+        let n = 2;
         dbg!(rand::random::<f32>());
 
         let colors: Vec<Color> = (0..n)
@@ -79,11 +82,13 @@ impl App for TriangleApp {
             */
 
             let radius = 50;
+            let mut ctr = 0;
             plot_fill_circle((w as i32/2, w as i32/2), radius, |pt| {
                 if let Some(coord) = box_coord((w, w), pt) {
-                    smoke.smoke_mut()[coord] = 0.1;
+                    smoke.smoke_mut()[coord] = 1.;
                 }
             });
+
         }
 
         // Set up line buffer
@@ -415,29 +420,26 @@ fn plot_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32
 
 
 fn plot_fill_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32>)) {
-    let mut x = radius;
-    let mut y = 0;
-    let mut err = 0;
-
-    while x >= y {
-        // Draw a horizontal line between the top and bottom points.
-        for i in (x0 - x)..=(x0 + x) {
-            plot((i, y0 + y));
-            plot((i, y0 - y));
-        }
-
-        // Draw a horizontal line between the left and right points.
-        for i in (x0 - y)..=(x0 + y) {
-            plot((i, y0 + x));
-            plot((i, y0 - x));
-        }
-
-        // Calculate the next point on the circumference.
-        y += 1;
-        err += 1 + 2 * y;
-        if 2 * (err - x) + 1 > 0 {
-            x -= 1;
-            err += 1 - 2 * x;
+    // TODO: Use midpoint circle algo smh
+    for x in -radius..=radius {
+        for y in -radius..=radius {
+            if x*x + y*y < radius*radius {
+                plot((x + x0, y + y0));
+            }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+#[test]
+fn test_fill_circle() {
+    for i in 0..300 {
+        let mut v = HashSet::new();
+        plot_fill_circle((0, 0), i, |pt| {
+            assert!(v.insert(pt), "Repeats! N={i} Offender: {pt:?}, list: {v:#?}");
+        })
+    }
+}
 }
