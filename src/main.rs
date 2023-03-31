@@ -46,7 +46,7 @@ struct ParticleLife {
 impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
         // Set up fluid sim
-        let w = 150;
+        let w = 550;
         //let sim = FluidSim::new(w, w);
 
         let height = w;
@@ -69,7 +69,7 @@ impl App for TriangleApp {
 
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
-            for _ in 0..30 {
+            for _ in 0..width {
                 let intensity = 50.;
 
                 let area_width = width - 4;
@@ -128,9 +128,9 @@ impl App for TriangleApp {
     }
 
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
+        self.frame_count += 1;
         /*
         // Modify
-        self.frame_count += 1;
         let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
 
         let d = self.life.smoke_mut()[0].smoke_mut();
@@ -203,6 +203,9 @@ impl App for TriangleApp {
             &mut self.life.colors,
             DENSITY_Z,
         );
+
+        let name = format!("{:04}.ppm", self.frame_count);
+        draw_density_image(&name, &mut self.life.smoke, &mut self.life.colors);
         //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
@@ -445,7 +448,6 @@ fn calc_force(
     let width = smokes[0].smoke().width();
     let height = smokes[0].smoke().height();
 
-
     /*
     let circles: Vec<Vec<Coord<i32>>> = behaviours
         .data()
@@ -550,4 +552,47 @@ fn plot_fill_circle(radius: i32) -> impl Iterator<Item = Coord<i32>> {
                 .filter_map(move |x| (x * x + y * y < radius * radius).then(|| (x, y)))
         })
         .flatten()
+}
+
+pub fn write_ppm(path: &str, image: &[u8], width: usize) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(path)?);
+    let height = image.len() / (width * 3);
+    assert_eq!(image.len() % 3, 0);
+    assert_eq!(image.len() % (width * 3), 0);
+    writer.write(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
+    writer.write(image)?;
+    Ok(())
+}
+
+fn draw_density_image(path: &str, smoke: &[SmokeSim], colors: &[Color]) {
+    let mut pixel_data = vec![];
+
+    let width = smoke[0].smoke().width();
+    let height = smoke[0].smoke().height();
+
+    let cell_width = 2. / width as f32;
+    let cell_height = 2. / height as f32;
+
+    for i in 0..width {
+        let i_frac = (i as f32 / width as f32) * 2. - 1.;
+        for j in 0..height {
+            let j_frac = (j as f32 / height as f32) * 2. - 1.;
+
+            // Sum colors
+            let color = smoke
+                .iter()
+                .zip(colors)
+                .map(|(smoke, color)| color.into_iter().map(|&c| c * smoke.smoke()[(i, j)]))
+                .fold([0.; 3], |mut acc, x| {
+                    acc.iter_mut().zip(x).for_each(|(acc, x)| *acc += x);
+                    acc
+                });
+
+            let color = color.map(|c| (c.clamp(0., 1.) * 256.) as u8);
+            pixel_data.extend(color);
+        }
+    }
+
+    write_ppm(path, &pixel_data, width).unwrap();
 }
