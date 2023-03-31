@@ -6,6 +6,7 @@ use idek_basics::{
     idek::{self, nalgebra::SimdBool},
     Array2D, GraphicsBuilder,
 };
+use rand::seq::SliceRandom;
 
 fn main() -> Result<()> {
     //plot_fill_circle((0,0), 0, |pt| {dbg!(pt);});
@@ -161,6 +162,8 @@ impl App for TriangleApp {
             smoke.advect(self.sim.uv(), dt);
         }
 
+        let mut rng = rand::thread_rng();
+
         // Resampling
         let w = self.life.smoke[0].smoke().width();
         let h = self.life.smoke[0].smoke().height();
@@ -168,10 +171,20 @@ impl App for TriangleApp {
             let x = rand::random::<usize>() % (w - 4) + 2;
             let y = rand::random::<usize>() % (h - 4) + 2;
             let coord = (x, y);
-            let chosen_one = rand::random::<usize>() % self.life.smoke.len();
-            let sum = self.life.smoke.iter().map(|s| s.smoke()[coord]).sum::<f32>();
+
+            // Attempt to choose a statistically accurate sample
+            let sum = self.life.smoke.iter().map(|c| c.smoke()[coord]).sum::<f32>();
+
+            if sum == 0. {
+                continue;
+            }
+
+            let chosen_one = self.life.smoke.choose_weighted(&mut rng, |s| s.smoke()[coord]).unwrap();
+            let chosen_idx = self.life.smoke.iter().position(|x| std::ptr::eq(x, chosen_one)).unwrap();
+
+            // Move all mass into the chosen smoke 
             self.life.smoke.iter_mut().for_each(|c| c.smoke_mut()[coord] = 0.);
-            self.life.smoke[chosen_one].smoke_mut()[coord] = sum;
+            self.life.smoke[chosen_idx].smoke_mut()[coord] = sum;
         }
 
         // Draw
@@ -380,7 +393,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 1.,
+            default_repulse: 0.,
             inter_threshold: 3.,
             inter_strength: 1.,
             inter_max_dist: 5.0,
@@ -442,12 +455,18 @@ fn calc_force(
             let behav = behaviours[(i, j)];
             let radius = behav.inter_max_dist as i32;
 
+            // Skip thyself
+            if i == j {
+                continue;
+            }
+
             // For each point in the circle around this point
             for (dx, dy) in plot_fill_circle(radius) {
-                // Skip thyself
+                /*
                 if (dx, dy) == (0, 0) {
                     continue;
                 }
+                */
 
                 let (cx, cy) = center;
                 let pt = (cx as i32 + dx, cy as i32 + dy);
