@@ -21,22 +21,23 @@ const DENSITY_Z: f32 = 0.5;
 const VELOCITY_Z: f32 = 0.0;
 
 struct TriangleApp {
-    line_verts: VertexBuffer,
-    line_indices: IndexBuffer,
-    line_gb: GraphicsBuilder,
-    line_shader: Shader,
+    //line_verts: VertexBuffer,
+    //line_indices: IndexBuffer,
+    //line_gb: GraphicsBuilder,
+    //line_shader: Shader,
 
     tri_verts: VertexBuffer,
     tri_indices: IndexBuffer,
     tri_gb: GraphicsBuilder,
 
-    sim: FluidSim,
+    //sim: FluidSim,
     life: ParticleLife,
 
     frame_count: usize,
 }
 
 struct ParticleLife {
+    fluid: Vec<FluidSim>,
     smoke: Vec<SmokeSim>,
     behaviours: Array2D<Behaviour>,
     colors: Vec<Color>,
@@ -46,10 +47,10 @@ impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
         // Set up fluid sim
         let w = 150;
-        let sim = FluidSim::new(w, w);
+        //let sim = FluidSim::new(w, w);
 
-        let height = sim.height();
-        let width = sim.width();
+        let height = w;
+        let width = w;
 
         // Decide behaviours and colors
         let n = 2;
@@ -69,7 +70,7 @@ impl App for TriangleApp {
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
             for _ in 0..100 {
-                let intensity = 10.;
+                let intensity = 20.;
 
                 let area_width = width - 4;
                 let area_height = height - 4;
@@ -92,11 +93,11 @@ impl App for TriangleApp {
         }
 
         // Set up line buffer
-        let mut line_gb = GraphicsBuilder::new();
-        draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
+        //let mut line_gb = GraphicsBuilder::new();
+        //draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
 
-        let line_verts = ctx.vertices(&line_gb.vertices, true)?;
-        let line_indices = ctx.indices(&line_gb.indices, true)?;
+        //let line_verts = ctx.vertices(&line_gb.vertices, true)?;
+        //let line_indices = ctx.indices(&line_gb.indices, true)?;
 
         // Set up triangle buffer
         let mut tri_gb = GraphicsBuilder::new();
@@ -112,16 +113,15 @@ impl App for TriangleApp {
         )?;
 
         Ok(Self {
-            line_verts,
-            line_indices,
-            line_gb,
-            line_shader,
+            //line_verts,
+            //line_indices,
+            //line_gb,
+            //line_shader,
 
             tri_verts,
             tri_indices,
             tri_gb,
 
-            sim,
             life,
 
             frame_count: 0,
@@ -153,18 +153,20 @@ impl App for TriangleApp {
         particle_life(
             &self.life.behaviours,
             &self.life.smoke,
-            self.sim.uv_mut(),
+            &mut self.life.fluid,
+            //self.sim.uv_mut(),
             1.,
         );
 
-        self.sim.step(dt, overstep, 15);
-        for smoke in self.life.smoke_mut() {
-            smoke.advect(self.sim.uv(), dt);
+        for (fluid, smoke) in self.life.fluid.iter_mut().zip(&mut self.life.smoke) {
+            fluid.step(dt, overstep, 15);
+            smoke.advect(fluid.uv(), dt);
         }
 
-        let mut rng = rand::thread_rng();
+        //let mut rng = rand::thread_rng();
 
         // Resampling
+        /*
         let w = self.life.smoke[0].smoke().width();
         let h = self.life.smoke[0].smoke().height();
         for _ in 0..1000 {
@@ -186,9 +188,10 @@ impl App for TriangleApp {
             self.life.smoke.iter_mut().for_each(|c| c.smoke_mut()[coord] = 0.);
             self.life.smoke[chosen_idx].smoke_mut()[coord] = sum;
         }
+        */
 
         // Draw
-        self.line_gb.clear();
+        //self.line_gb.clear();
         self.tri_gb.clear();
 
         draw_density(
@@ -197,17 +200,17 @@ impl App for TriangleApp {
             &mut self.life.colors,
             DENSITY_Z,
         );
-        draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
+        //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
-        ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
+        //ctx.update_vertices(self.line_verts, &self.line_gb.vertices)?;
 
         // Render
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
-            DrawCmd::new(self.line_verts)
+            /*DrawCmd::new(self.line_verts)
                 .indices(self.line_indices)
-                .shader(self.line_shader),
+                .shader(self.line_shader),*/
         ])
     }
 
@@ -229,7 +232,12 @@ impl ParticleLife {
             .map(|_| SmokeSim::new(width, height))
             .collect();
 
+        let fluid = (0..colors.len())
+            .map(|_| FluidSim::new(width, height))
+            .collect();
+
         Self {
+            fluid,
             smoke,
             behaviours,
             colors,
@@ -393,9 +401,9 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 0.,
-            inter_threshold: 3.,
-            inter_strength: 1.,
+            default_repulse: 1.,
+            inter_threshold: 2.,
+            inter_strength: 4.,
             inter_max_dist: 5.0,
         }
     }
@@ -411,17 +419,15 @@ impl Behaviour {
 fn particle_life(
     behaviours: &Array2D<Behaviour>,
     smokes: &[SmokeSim],
-    (u, v): (&mut Array2D<f32>, &mut Array2D<f32>),
+    fluids: &mut [FluidSim],
     dt: f32,
 ) {
-    let w = u.width();
-    let h = u.height();
+    let w = fluids[0].width();
+    let h = fluids[0].height();
 
     for y in 1..h - 1 {
         for x in 1..w - 1 {
-            let (dx, dy) = calc_force((x, y), behaviours, smokes);
-            u[(x, y)] += dx * dt;
-            v[(x, y)] += dy * dt;
+            let (dx, dy) = calc_force((x, y), behaviours, smokes, fluids, dt);
         }
     }
 }
@@ -430,6 +436,8 @@ fn calc_force(
     center: Coord<usize>,
     behaviours: &Array2D<Behaviour>,
     smokes: &[SmokeSim],
+    fluids: &mut [FluidSim],
+    dt: f32,
 ) -> (f32, f32) {
     let width = smokes[0].smoke().width();
     let height = smokes[0].smoke().height();
@@ -487,6 +495,10 @@ fn calc_force(
                 }
             }
         }
+
+        let (u, v) = fluids[i].uv_mut();
+        u[center] += force_x * dt;
+        v[center] += force_y * dt;
     }
 
     (force_x, force_y)
