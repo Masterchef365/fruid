@@ -161,6 +161,19 @@ impl App for TriangleApp {
             smoke.advect(self.sim.uv(), dt);
         }
 
+        // Resampling
+        let w = self.life.smoke[0].smoke().width();
+        let h = self.life.smoke[0].smoke().height();
+        for _ in 0..1000 {
+            let x = rand::random::<usize>() % (w - 4) + 2;
+            let y = rand::random::<usize>() % (h - 4) + 2;
+            let coord = (x, y);
+            let chosen_one = rand::random::<usize>() % self.life.smoke.len();
+            let sum = self.life.smoke.iter().map(|s| s.smoke()[coord]).sum::<f32>();
+            self.life.smoke.iter_mut().for_each(|c| c.smoke_mut()[coord] = 0.);
+            self.life.smoke[chosen_one].smoke_mut()[coord] = sum;
+        }
+
         // Draw
         self.line_gb.clear();
         self.tri_gb.clear();
