@@ -7,6 +7,7 @@ use idek_basics::{
     Array2D, GraphicsBuilder,
 };
 use rand::seq::SliceRandom;
+use rayon::prelude::*;
 
 fn main() -> Result<()> {
     //plot_fill_circle((0,0), 0, |pt| {dbg!(pt);});
@@ -25,7 +26,6 @@ struct TriangleApp {
     //line_indices: IndexBuffer,
     //line_gb: GraphicsBuilder,
     //line_shader: Shader,
-
     tri_verts: VertexBuffer,
     tri_indices: IndexBuffer,
     tri_gb: GraphicsBuilder,
@@ -53,7 +53,7 @@ impl App for TriangleApp {
         let width = w;
 
         // Decide behaviours and colors
-        let n = 2;
+        let n = 3;
         let colors: Vec<Color> = (0..n)
             .map(|_| hsv_to_rgb(rand::random::<f32>() * 360., 1., 1.))
             .collect();
@@ -70,7 +70,7 @@ impl App for TriangleApp {
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
             for _ in 0..100 {
-                let intensity = 20.;
+                let intensity = 10.;
 
                 let area_width = width - 4;
                 let area_height = height - 4;
@@ -117,7 +117,6 @@ impl App for TriangleApp {
             //line_indices,
             //line_gb,
             //line_shader,
-
             tri_verts,
             tri_indices,
             tri_gb,
@@ -158,10 +157,14 @@ impl App for TriangleApp {
             1.,
         );
 
-        for (fluid, smoke) in self.life.fluid.iter_mut().zip(&mut self.life.smoke) {
-            fluid.step(dt, overstep, 15);
-            smoke.advect(fluid.uv(), dt);
-        }
+        self.life
+            .fluid
+            .par_iter_mut()
+            .zip(&mut self.life.smoke)
+            .for_each(|(fluid, smoke)| {
+                fluid.step(dt, overstep, 15);
+                smoke.advect(fluid.uv(), dt);
+            });
 
         //let mut rng = rand::thread_rng();
 
@@ -184,7 +187,7 @@ impl App for TriangleApp {
             let chosen_one = self.life.smoke.choose_weighted(&mut rng, |s| s.smoke()[coord]).unwrap();
             let chosen_idx = self.life.smoke.iter().position(|x| std::ptr::eq(x, chosen_one)).unwrap();
 
-            // Move all mass into the chosen smoke 
+            // Move all mass into the chosen smoke
             self.life.smoke.iter_mut().for_each(|c| c.smoke_mut()[coord] = 0.);
             self.life.smoke[chosen_idx].smoke_mut()[coord] = sum;
         }
@@ -209,8 +212,8 @@ impl App for TriangleApp {
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             /*DrawCmd::new(self.line_verts)
-                .indices(self.line_indices)
-                .shader(self.line_shader),*/
+            .indices(self.line_indices)
+            .shader(self.line_shader),*/
         ])
     }
 
