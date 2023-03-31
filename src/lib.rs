@@ -137,8 +137,8 @@ fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
     let tl_x = x.floor() as isize;
     let tl_y = y.floor() as isize;
 
-    let out_bound_x = tl_x < 0 || tl_x >= grid.width() as isize;
-    let out_bound_y = tl_y < 0 || tl_y >= grid.height() as isize;
+    let out_bound_x = tl_x < 1 || tl_x >= grid.width() as isize - 2;
+    let out_bound_y = tl_y < 1 || tl_y >= grid.height() as isize - 2;
 
     if out_bound_x || out_bound_y {
         return 0.;

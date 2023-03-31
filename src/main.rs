@@ -53,7 +53,7 @@ impl App for TriangleApp {
         let width = w;
 
         // Decide behaviours and colors
-        let n = 2;
+        let n = 3;
         let colors: Vec<Color> = (0..n)
             .map(|_| hsv_to_rgb(rand::random::<f32>() * 360., 1., 1.))
             .collect();
@@ -404,9 +404,9 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 0.,
-            inter_threshold: 0.,
-            inter_strength: 6.,
+            default_repulse: 8.,
+            inter_threshold: 1.,
+            inter_strength: 16.,
             inter_max_dist: 5.0,
         }
     }
