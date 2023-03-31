@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, collections::HashSet};
+use std::{collections::HashSet, f32::consts::PI};
 
 use fruid::{FluidSim, SmokeSim};
 use idek::{prelude::*, IndexBuffer};
@@ -44,7 +44,7 @@ struct ParticleLife {
 impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
         // Set up fluid sim
-        let w = 250;
+        let w = 150;
         let sim = FluidSim::new(w, w);
 
         let height = sim.height();
@@ -69,9 +69,8 @@ impl App for TriangleApp {
 
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
-            /*
             for _ in 0..100 {
-                let intensity = 10.;
+                let intensity = 50.;
                 let area_width = width - 2;
                 let area_height = height - 2;
 
@@ -79,16 +78,17 @@ impl App for TriangleApp {
                 let y = area_height * (rand::random::<usize>() % area_height) / area_height + 1;
                 smoke.smoke_mut()[(x, y)] = intensity;
             }
-            */
 
-            let radius = 50;
-            let mut ctr = 0;
-            plot_fill_circle((w as i32/2, w as i32/2), radius, |pt| {
-                if let Some(coord) = box_coord((w, w), pt) {
-                    smoke.smoke_mut()[coord] = 1.;
-                }
-            });
-
+            /*
+                    let radius = 50;
+                    let mut ctr = 0;
+                    plot_fill_circle(, radius, |pt| {
+                        if let Some(coord) = box_coord((w, w), (x, y)) {
+            let coord =                (w as i32 / 2, w as i32 / 2);
+                            smoke.smoke_mut()[coord] = 1.;
+                        }
+                    });
+                    */
         }
 
         // Set up line buffer
@@ -129,6 +129,7 @@ impl App for TriangleApp {
     }
 
     fn frame(&mut self, ctx: &mut Context, _: &mut Platform) -> Result<Vec<DrawCmd>> {
+        /*
         // Modify
         self.frame_count += 1;
         let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
@@ -144,9 +145,17 @@ impl App for TriangleApp {
         //let time = 3. * PI / 2.;
         u[pos] = -450. * (time).cos();
         v[pos] = -450. * (time).sin();
+        */
 
         let dt = 1e-2;
         let overstep = 1.9;
+
+        particle_life(
+            &self.life.behaviours,
+            &self.life.smoke,
+            self.sim.uv_mut(),
+            dt,
+        );
 
         self.sim.step(dt, overstep, 15);
         for smoke in self.life.smoke_mut() {
@@ -360,9 +369,9 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             default_repulse: 10.,
-            inter_threshold: 0.02,
-            inter_strength: 1.,
-            inter_max_dist: 0.2,
+            inter_threshold: 2.,
+            inter_strength: 100.,
+            inter_max_dist: 5.0,
         }
     }
 }
@@ -375,10 +384,82 @@ impl Behaviour {
 }
 
 fn particle_life(
-    behaviours: &[Behaviour],
-    smoke: &[SmokeSim],
+    behaviours: &Array2D<Behaviour>,
+    smokes: &[SmokeSim],
     (u, v): (&mut Array2D<f32>, &mut Array2D<f32>),
+    dt: f32,
 ) {
+    let w = u.width();
+    let h = u.height();
+
+    for y in 1..h - 1 {
+        for x in 1..w - 1 {
+            let (dx, dy) = calc_force((x, y), behaviours, smokes);
+            u[(x, y)] += dx * dt;
+            v[(x, y)] += dy * dt;
+        }
+    }
+}
+
+fn calc_force(
+    center: Coord<usize>,
+    behaviours: &Array2D<Behaviour>,
+    smokes: &[SmokeSim],
+) -> (f32, f32) {
+    let width = smokes[0].smoke().width();
+    let height = smokes[0].smoke().height();
+
+    let mut force_x = 0.;
+    let mut force_y = 0.;
+
+    /*
+    let circles: Vec<Vec<Coord<i32>>> = behaviours
+        .data()
+        .iter()
+        .map(|b| plot_fill_circle(b.inter_max_dist as i32).collect())
+        .collect();
+    let circles = Array2D::from_array(width, circles);
+    */
+
+    // For each possible behaviour (interaction)...
+    for i in 0..smokes.len() {
+        let i_smoke = &smokes[i];
+        for j in 0..smokes.len() {
+            let j_smoke = &smokes[j];
+
+            let behav = behaviours[(i, j)];
+            let radius = behav.inter_max_dist as i32;
+
+            // For each point in the circle around this point
+            for (dx, dy) in plot_fill_circle(radius) {
+                // Skip thyself
+                if (dx, dy) == (0, 0) {
+                    //continue;
+                }
+
+                let (cx, cy) = center;
+                let pt = (cx as i32 + dx, cy as i32 + dy);
+
+                if let Some(coord) = box_coord((width, height), pt) {
+                    // Calculate relative distance
+                    let dist_sq = dx * dx + dy * dy;
+                    let dist = (dist_sq as f32).sqrt();
+
+                    // Calculate force magnitude
+                    let mag =
+                        behav.interact(dist) * i_smoke.smoke()[coord] * j_smoke.smoke()[coord];
+
+                    // Calculate forces
+                    force_x += mag * dx as f32 / dist.max(1.);
+                    force_y += mag * dy as f32 / dist.max(1.);
+                }
+            }
+        }
+    }
+
+    //dbg!((force_x, force_y));
+    //(0., 0.)
+    (force_x, force_y)
 }
 
 type Coord<T> = (T, T);
@@ -418,28 +499,12 @@ fn plot_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32
     }
 }
 
-
-fn plot_fill_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32>)) {
+fn plot_fill_circle(radius: i32) -> impl Iterator<Item = Coord<i32>> {
     // TODO: Use midpoint circle algo smh
-    for x in -radius..=radius {
-        for y in -radius..=radius {
-            if x*x + y*y < radius*radius {
-                plot((x + x0, y + y0));
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-#[test]
-fn test_fill_circle() {
-    for i in 0..300 {
-        let mut v = HashSet::new();
-        plot_fill_circle((0, 0), i, |pt| {
-            assert!(v.insert(pt), "Repeats! N={i} Offender: {pt:?}, list: {v:#?}");
+    (-radius..=radius)
+        .map(move |y| {
+            (-radius..=radius)
+                .filter_map(move |x| (x * x + y * y < radius * radius).then(|| (x, y)))
         })
-    }
-}
+        .flatten()
 }
