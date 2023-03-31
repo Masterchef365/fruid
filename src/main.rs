@@ -456,6 +456,8 @@ fn calc_force(
         .collect();
     let circles = Array2D::from_array(width, circles);
     */
+    let radius = behaviours[(0,0)].inter_max_dist as i32;
+    let circle: Vec<Coord<i32>> = plot_fill_circle(radius).collect();
 
     // For each possible behaviour (interaction)...
     for i in 0..smokes.len() {
@@ -466,7 +468,6 @@ fn calc_force(
             let j_smoke = &smokes[j];
 
             let behav = behaviours[(i, j)];
-            let radius = behav.inter_max_dist as i32;
 
             // Skip thyself
             if i == j {
@@ -474,7 +475,7 @@ fn calc_force(
             }
 
             // For each point in the circle around this point
-            for (dx, dy) in plot_fill_circle(radius) {
+            for &(dx, dy) in &circle {
                 /*
                 if (dx, dy) == (0, 0) {
                     continue;
