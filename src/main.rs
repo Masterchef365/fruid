@@ -66,6 +66,7 @@ impl App for TriangleApp {
 
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
+            /*
             for _ in 0..100 {
                 let intensity = 10.;
                 let area_width = width - 2;
@@ -75,6 +76,14 @@ impl App for TriangleApp {
                 let y = area_height * (rand::random::<usize>() % area_height) / area_height + 1;
                 smoke.smoke_mut()[(x, y)] = intensity;
             }
+            */
+
+            let radius = 50;
+            plot_circle((w as i32/2, w as i32/2), radius, |pt| {
+                if let Some(coord) = box_coord((w, w), pt) {
+                    smoke.smoke_mut()[coord] = 1.;
+                }
+            });
         }
 
         // Set up line buffer
@@ -374,7 +383,7 @@ fn box_coord((width, height): Coord<usize>, (x, y): Coord<i32>) -> Option<Coord<
     f(x, width).zip(f(y, height))
 }
 
-fn filled_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32>)) {
+fn plot_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32>)) {
     let mut x = radius;
     let mut y = 0;
     let mut err = 0;
