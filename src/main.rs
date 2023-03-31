@@ -52,14 +52,12 @@ impl App for TriangleApp {
 
         // Decide behaviours and colors
         let n = 2;
-        dbg!(rand::random::<f32>());
-
         let colors: Vec<Color> = (0..n)
             .map(|_| hsv_to_rgb(rand::random::<f32>() * 360., 1., 1.))
             .collect();
         let behaviours: Vec<Behaviour> = (0..n * n)
             .map(|_| {
-                Behaviour::default().with_inter_strength((rand::random::<f32>() * 2. - 1.) * 15.)
+                Behaviour::default().with_inter_strength((rand::random::<f32>() * 2. - 1.) * 5.)
             })
             .collect();
         let behaviours = Array2D::from_array(n, behaviours);
@@ -70,7 +68,8 @@ impl App for TriangleApp {
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
             for _ in 0..100 {
-                let intensity = 50.;
+                let intensity = 10.;
+
                 let area_width = width - 2;
                 let area_height = height - 2;
 
@@ -154,7 +153,7 @@ impl App for TriangleApp {
             &self.life.behaviours,
             &self.life.smoke,
             self.sim.uv_mut(),
-            dt,
+            1.,
         );
 
         self.sim.step(dt, overstep, 15);
@@ -368,9 +367,9 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 10.,
-            inter_threshold: 2.,
-            inter_strength: 100.,
+            default_repulse: 0.,
+            inter_threshold: 3.,
+            inter_strength: 1.,
             inter_max_dist: 5.0,
         }
     }
@@ -446,8 +445,9 @@ fn calc_force(
                     let dist = (dist_sq as f32).sqrt();
 
                     // Calculate force magnitude
-                    let mag =
-                        behav.interact(dist) * i_smoke.smoke()[coord] * j_smoke.smoke()[coord];
+                    let total_smoke = i_smoke.smoke()[center] * j_smoke.smoke()[coord];
+                    let inter = behav.interact(dist);
+                    let mag = inter * total_smoke;
 
                     // Calculate forces
                     force_x += mag * dx as f32 / dist.max(1.);
@@ -457,8 +457,6 @@ fn calc_force(
         }
     }
 
-    //dbg!((force_x, force_y));
-    //(0., 0.)
     (force_x, force_y)
 }
 
