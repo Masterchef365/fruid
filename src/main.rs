@@ -69,8 +69,8 @@ impl App for TriangleApp {
 
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
-            for _ in 0..100 {
-                let intensity = 10.;
+            for _ in 0..30 {
+                let intensity = 50.;
 
                 let area_width = width - 4;
                 let area_height = height - 4;
@@ -404,9 +404,9 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 1.,
-            inter_threshold: 2.,
-            inter_strength: 4.,
+            default_repulse: 0.,
+            inter_threshold: 0.,
+            inter_strength: 6.,
             inter_max_dist: 5.0,
         }
     }
