@@ -134,8 +134,18 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 /// Bilinear interpolation of the given grid at the given coordinates
 fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
     // Bounds enforcement. No panics!
-    let tl_x = (x.floor() as isize).clamp(1, grid.width() as isize - 2) as usize;
-    let tl_y = (y.floor() as isize).clamp(1, grid.height() as isize - 2) as usize;
+    let tl_x = x.floor() as isize;
+    let tl_y = y.floor() as isize;
+
+    let out_bound_x = tl_x < 0 || tl_x >= grid.width() as isize;
+    let out_bound_y = tl_y < 0 || tl_y >= grid.height() as isize;
+
+    if out_bound_x || out_bound_y {
+        return 0.;
+    }
+
+    let tl_x = tl_x as usize;
+    let tl_y = tl_y as usize;
 
     // Get corners
     let tl = grid[(tl_x, tl_y)];
