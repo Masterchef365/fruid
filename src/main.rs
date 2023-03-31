@@ -2,7 +2,10 @@ use std::f32::consts::PI;
 
 use fruid::{FluidSim, SmokeSim};
 use idek::{prelude::*, IndexBuffer};
-use idek_basics::{idek, GraphicsBuilder, Array2D};
+use idek_basics::{
+    idek::{self, nalgebra::SimdBool},
+    Array2D, GraphicsBuilder,
+};
 
 fn main() -> Result<()> {
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
@@ -155,8 +158,8 @@ impl App for TriangleApp {
         Ok(vec![
             DrawCmd::new(self.tri_verts).indices(self.tri_indices),
             DrawCmd::new(self.line_verts)
-            .indices(self.line_indices)
-            .shader(self.line_shader),
+                .indices(self.line_indices)
+                .shader(self.line_shader),
         ])
     }
 
@@ -362,4 +365,41 @@ fn particle_life(
     smoke: &[SmokeSim],
     (u, v): (&mut Array2D<f32>, &mut Array2D<f32>),
 ) {
+}
+
+type Coord<T> = (T, T);
+
+fn box_coord((width, height): Coord<usize>, (x, y): Coord<i32>) -> Option<Coord<usize>> {
+    let f = |v: i32, len: usize| (v >= 0).then(|| v as usize).filter(|&v| v < len);
+    f(x, width).zip(f(y, height))
+}
+
+fn filled_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32>)) {
+    let mut x = radius;
+    let mut y = 0;
+    let mut err = 0;
+
+    while x >= y {
+        // Draw the top and bottom points of the circle.
+        plot((x0 + x, y0 + y));
+        plot((x0 - x, y0 + y));
+        plot((x0 + x, y0 - y));
+        plot((x0 - x, y0 - y));
+
+        // Draw a horizontal line between the top and bottom points.
+        if x != y {
+            plot((x0 + y, y0 + x));
+            plot((x0 - y, y0 + x));
+            plot((x0 + y, y0 - x));
+            plot((x0 - y, y0 - x));
+        }
+
+        // Calculate the next point on the circumference.
+        y += 1;
+        err += 1 + 2 * y;
+        if 2 * (err - x) + 1 > 0 {
+            x -= 1;
+            err += 1 - 2 * x;
+        }
+    }
 }
