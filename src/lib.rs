@@ -1,10 +1,14 @@
 pub type Array2D = idek_basics::Array2D<f32>;
 
+pub struct SmokeSim {
+    read: Array2D,
+    write: Array2D,
+}
+
 #[derive(Clone)]
 pub struct FluidState {
     u: Array2D,
     v: Array2D,
-    smoke: Array2D,
 }
 
 pub struct FluidSim {
@@ -17,7 +21,6 @@ impl FluidSim {
         let empty = FluidState {
             u: Array2D::new(width + 1, height),
             v: Array2D::new(width, height + 1),
-            smoke: Array2D::new(width, height),
         };
 
         Self {
@@ -64,22 +67,6 @@ impl FluidSim {
         // Swap the written buffers back into read again
         std::mem::swap(&mut self.read.u, &mut self.write.u);
         std::mem::swap(&mut self.read.v, &mut self.write.v);
-
-        // Advect smoke
-        for y in 1..self.read.v.height() - 2 {
-            for x in 1..self.read.v.width() - 2 {
-                let (px, py) = advect(
-                    &self.read.u,
-                    &self.read.v,
-                    x as f32 + 0.5,
-                    y as f32 + 0.5,
-                    dt,
-                );
-                self.write.smoke[(x, y)] = interp(&self.read.smoke, px - 0.5, py - 0.5);
-            }
-        }
-
-        std::mem::swap(&mut self.read.smoke, &mut self.write.smoke);
     }
 
     pub fn uv(&self) -> (&Array2D, &Array2D) {
@@ -90,16 +77,41 @@ impl FluidSim {
         (&mut self.read.u, &mut self.read.v)
     }
 
-    pub fn smoke_mut(&mut self) -> &mut Array2D {
-        &mut self.read.smoke
-    }
-
     pub fn width(&self) -> usize {
-        self.read.u.width()
+        self.read.v.width()
     }
 
     pub fn height(&self) -> usize {
         self.read.u.height()
+    }
+}
+
+impl SmokeSim {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            read: Array2D::new(width, height),
+            write: Array2D::new(width, height),
+        }
+    }
+
+    pub fn advect(&mut self, (u, v): (&Array2D, &Array2D), dt: f32) {
+        // Advect smoke
+        for y in 1..v.height() - 2 {
+            for x in 1..v.width() - 2 {
+                let (px, py) = advect(&u, &v, x as f32 + 0.5, y as f32 + 0.5, dt);
+                self.write[(x, y)] = interp(&self.read, px - 0.5, py - 0.5);
+            }
+        }
+
+        std::mem::swap(&mut self.read, &mut self.write);
+    }
+
+    pub fn smoke(&self) -> &Array2D {
+        &self.read
+    }
+
+    pub fn smoke_mut(&mut self) -> &mut Array2D {
+        &mut self.read
     }
 }
 
@@ -139,26 +151,3 @@ fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
         y.fract(),
     )
 }
-
-/*
-   fn enforce_bounds() {
-// Set grid boundaries
-for x in 0..self.write.u.width() {
-let top = (x, 0);
-let bottom = (x, self.write.u.height() - 1);
-self.write.u[top] = 0.;
-self.write.u[bottom] = 0.;
-self.write.v[top] = 0.;
-self.write.v[bottom] = 0.;
-}
-
-for y in 0..self.write.u.height() {
-let left = (0, y);
-let right = (self.write.u.width() - 1, y);
-self.write.u[left] = 0.;
-self.write.u[right] = 0.;
-self.write.v[left] = 0.;
-self.write.v[right] = 0.;
-}
-}
-*/

@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use fruid::{Array2D, FluidSim};
+use fruid::{Array2D, FluidSim, SmokeSim};
 use idek::{prelude::*, IndexBuffer};
 use idek_basics::{idek, GraphicsBuilder};
 
@@ -22,6 +22,7 @@ struct TriangleApp {
     tri_gb: GraphicsBuilder,
 
     sim: FluidSim,
+    smoke: SmokeSim,
 
     frame_count: usize,
 }
@@ -31,17 +32,19 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let mut sim = FluidSim::new(250, 250);
+        let w = 250;
+        let mut sim = FluidSim::new(w, w);
+        let mut smoke = SmokeSim::new(w, w);
 
         let height = sim.height();
         let width = sim.width();
         let intensity = 1e4;
-        sim.smoke_mut()[(width / 2, height / 3)] = intensity;
+        smoke.smoke_mut()[(width / 2, height / 3)] = intensity;
 
         //sim.step(0.1, 0.0, 10);
 
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
-        draw_density(&mut tri_gb, sim.smoke_mut(), DENSITY_Z);
+        draw_density(&mut tri_gb, smoke.smoke(), DENSITY_Z);
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
@@ -66,6 +69,7 @@ impl App for TriangleApp {
             tri_gb,
 
             sim,
+            smoke,
 
             frame_count: 0,
         })
@@ -76,7 +80,7 @@ impl App for TriangleApp {
         self.frame_count += 1;
         let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
 
-        let d = self.sim.smoke_mut();
+        let d = self.smoke.smoke_mut();
         let center = (d.width() / 2, d.height() / 2);
         let x = center.0 as f32 * ((time / 5.).cos() + 1.) * 0.8;
 
@@ -92,6 +96,7 @@ impl App for TriangleApp {
         let overstep = 1.9;
 
         self.sim.step(dt, overstep, 15);
+        self.smoke.advect(self.sim.uv(), dt);
 
         // Draw
         self.line_gb.clear();
@@ -99,7 +104,7 @@ impl App for TriangleApp {
 
         draw_density(
             &mut self.tri_gb,
-            self.sim.smoke_mut(),
+            self.smoke.smoke_mut(),
             DENSITY_Z,
         );
         draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
