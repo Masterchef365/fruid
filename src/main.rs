@@ -79,9 +79,9 @@ impl App for TriangleApp {
             */
 
             let radius = 50;
-            plot_circle((w as i32/2, w as i32/2), radius, |pt| {
+            plot_fill_circle((w as i32/2, w as i32/2), radius, |pt| {
                 if let Some(coord) = box_coord((w, w), pt) {
-                    smoke.smoke_mut()[coord] = 1.;
+                    smoke.smoke_mut()[coord] = 0.1;
                 }
             });
         }
@@ -401,6 +401,35 @@ fn plot_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32
             plot((x0 - y, y0 + x));
             plot((x0 + y, y0 - x));
             plot((x0 - y, y0 - x));
+        }
+
+        // Calculate the next point on the circumference.
+        y += 1;
+        err += 1 + 2 * y;
+        if 2 * (err - x) + 1 > 0 {
+            x -= 1;
+            err += 1 - 2 * x;
+        }
+    }
+}
+
+
+fn plot_fill_circle((x0, y0): Coord<i32>, radius: i32, mut plot: impl FnMut(Coord<i32>)) {
+    let mut x = radius;
+    let mut y = 0;
+    let mut err = 0;
+
+    while x >= y {
+        // Draw a horizontal line between the top and bottom points.
+        for i in (x0 - x)..=(x0 + x) {
+            plot((i, y0 + y));
+            plot((i, y0 - y));
+        }
+
+        // Draw a horizontal line between the left and right points.
+        for i in (x0 - y)..=(x0 + y) {
+            plot((i, y0 + x));
+            plot((i, y0 - x));
         }
 
         // Calculate the next point on the circumference.
