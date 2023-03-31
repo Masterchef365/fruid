@@ -70,11 +70,11 @@ impl App for TriangleApp {
             for _ in 0..100 {
                 let intensity = 10.;
 
-                let area_width = width - 2;
-                let area_height = height - 2;
+                let area_width = width - 4;
+                let area_height = height - 4;
 
-                let x = area_width * (rand::random::<usize>() % area_width) / area_width + 1;
-                let y = area_height * (rand::random::<usize>() % area_height) / area_height + 1;
+                let x = area_width * (rand::random::<usize>() % area_width) / area_width + 2;
+                let y = area_height * (rand::random::<usize>() % area_height) / area_height + 2;
                 smoke.smoke_mut()[(x, y)] = intensity;
             }
 
@@ -367,7 +367,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
 impl Default for Behaviour {
     fn default() -> Self {
         Self {
-            default_repulse: 0.,
+            default_repulse: 1.,
             inter_threshold: 3.,
             inter_strength: 1.,
             inter_max_dist: 5.0,
@@ -433,7 +433,7 @@ fn calc_force(
             for (dx, dy) in plot_fill_circle(radius) {
                 // Skip thyself
                 if (dx, dy) == (0, 0) {
-                    //continue;
+                    continue;
                 }
 
                 let (cx, cy) = center;
