@@ -53,7 +53,7 @@ impl App for TriangleApp {
         let width = w;
 
         // Decide behaviours and colors
-        let n = 3;
+        let n = 2;
         let colors: Vec<Color> = (0..n)
             .map(|_| hsv_to_rgb(rand::random::<f32>() * 360., 1., 1.))
             .collect();
@@ -166,13 +166,13 @@ impl App for TriangleApp {
                 smoke.advect(fluid.uv(), dt);
             });
 
-        //let mut rng = rand::thread_rng();
+        /*
+        let mut rng = rand::thread_rng();
 
         // Resampling
-        /*
         let w = self.life.smoke[0].smoke().width();
         let h = self.life.smoke[0].smoke().height();
-        for _ in 0..1000 {
+        for _ in 0..100 {
             let x = rand::random::<usize>() % (w - 4) + 2;
             let y = rand::random::<usize>() % (h - 4) + 2;
             let coord = (x, y);
@@ -430,7 +430,7 @@ fn particle_life(
 
     for y in 1..h - 1 {
         for x in 1..w - 1 {
-            let (dx, dy) = calc_force((x, y), behaviours, smokes, fluids, dt);
+            calc_force((x, y), behaviours, smokes, fluids, dt);
         }
     }
 }
@@ -441,12 +441,10 @@ fn calc_force(
     smokes: &[SmokeSim],
     fluids: &mut [FluidSim],
     dt: f32,
-) -> (f32, f32) {
+) {
     let width = smokes[0].smoke().width();
     let height = smokes[0].smoke().height();
 
-    let mut force_x = 0.;
-    let mut force_y = 0.;
 
     /*
     let circles: Vec<Vec<Coord<i32>>> = behaviours
@@ -459,6 +457,8 @@ fn calc_force(
 
     // For each possible behaviour (interaction)...
     for i in 0..smokes.len() {
+        let mut force_x = 0.;
+        let mut force_y = 0.;
         let i_smoke = &smokes[i];
         for j in 0..smokes.len() {
             let j_smoke = &smokes[j];
@@ -503,8 +503,6 @@ fn calc_force(
         u[center] += force_x * dt;
         v[center] += force_y * dt;
     }
-
-    (force_x, force_y)
 }
 
 type Coord<T> = (T, T);
