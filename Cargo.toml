@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 idek_basics = { git = "http://github.com/Masterchef365/idek-basics.git", rev = "6a3e9c74" }
+rand = "0.8"

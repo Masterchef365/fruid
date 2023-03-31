@@ -1,12 +1,14 @@
 use std::f32::consts::PI;
 
-use fruid::{Array2D, FluidSim, SmokeSim};
+use fruid::{FluidSim, SmokeSim};
 use idek::{prelude::*, IndexBuffer};
-use idek_basics::{idek, GraphicsBuilder};
+use idek_basics::{idek, GraphicsBuilder, Array2D};
 
 fn main() -> Result<()> {
     launch::<_, TriangleApp>(Settings::default().vr_if_any_args())
 }
+
+type Color = [f32; 3];
 
 const DENSITY_Z: f32 = 0.5;
 const VELOCITY_Z: f32 = 0.0;
@@ -22,32 +24,63 @@ struct TriangleApp {
     tri_gb: GraphicsBuilder,
 
     sim: FluidSim,
-    smoke: SmokeSim,
+    life: ParticleLife,
 
     frame_count: usize,
 }
 
+struct ParticleLife {
+    smoke: Vec<SmokeSim>,
+    behaviours: Array2D<Behaviour>,
+    colors: Vec<Color>,
+}
+
 impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
-        let mut line_gb = GraphicsBuilder::new();
-        let mut tri_gb = GraphicsBuilder::new();
-
+        // Set up fluid sim
         let w = 250;
-        let mut sim = FluidSim::new(w, w);
-        let mut smoke = SmokeSim::new(w, w);
+        let sim = FluidSim::new(w, w);
 
         let height = sim.height();
         let width = sim.width();
-        let intensity = 1e4;
-        smoke.smoke_mut()[(width / 2, height / 3)] = intensity;
 
-        //sim.step(0.1, 0.0, 10);
+        // Decide behaviours and colors
+        let n = 5;
+        dbg!(rand::random::<f32>());
 
+        let colors: Vec<Color> = (0..n)
+            .map(|_| hsv_to_rgb(rand::random::<f32>() * 360., 1., 1.))
+            .collect();
+        let behaviours: Vec<Behaviour> = (0..n * n)
+            .map(|_| {
+                Behaviour::default().with_inter_strength((rand::random::<f32>() * 2. - 1.) * 15.)
+            })
+            .collect();
+        let behaviours = Array2D::from_array(n, behaviours);
+
+        // Create life!
+        let mut life = ParticleLife::new(w, w, behaviours, colors);
+
+        // Place a dot of smoke
+        for smoke in life.smoke_mut() {
+            for _ in 0..100 {
+                let intensity = 10.;
+                let x = width * (rand::random::<usize>() % width) / width;
+                let y = height * (rand::random::<usize>() % height) / height;
+                smoke.smoke_mut()[(x, y)] = intensity;
+            }
+        }
+
+        // Set up line buffer
+        let mut line_gb = GraphicsBuilder::new();
         draw_velocity_lines(&mut line_gb, sim.uv(), VELOCITY_Z);
-        draw_density(&mut tri_gb, smoke.smoke(), DENSITY_Z);
 
         let line_verts = ctx.vertices(&line_gb.vertices, true)?;
         let line_indices = ctx.indices(&line_gb.indices, true)?;
+
+        // Set up triangle buffer
+        let mut tri_gb = GraphicsBuilder::new();
+        draw_density(&mut tri_gb, &life.smoke, &life.colors, DENSITY_Z);
 
         let tri_verts = ctx.vertices(&tri_gb.vertices, true)?;
         let tri_indices = ctx.indices(&tri_gb.indices, true)?;
@@ -69,7 +102,7 @@ impl App for TriangleApp {
             tri_gb,
 
             sim,
-            smoke,
+            life,
 
             frame_count: 0,
         })
@@ -80,7 +113,7 @@ impl App for TriangleApp {
         self.frame_count += 1;
         let time = self.frame_count as f32 / 120.; //ctx.start_time().elapsed().as_secs_f32();
 
-        let d = self.smoke.smoke_mut();
+        let d = self.life.smoke_mut()[0].smoke_mut();
         let center = (d.width() / 2, d.height() / 2);
         let x = center.0 as f32 * ((time / 5.).cos() + 1.) * 0.8;
 
@@ -96,7 +129,9 @@ impl App for TriangleApp {
         let overstep = 1.9;
 
         self.sim.step(dt, overstep, 15);
-        self.smoke.advect(self.sim.uv(), dt);
+        for smoke in self.life.smoke_mut() {
+            smoke.advect(self.sim.uv(), dt);
+        }
 
         // Draw
         self.line_gb.clear();
@@ -104,7 +139,8 @@ impl App for TriangleApp {
 
         draw_density(
             &mut self.tri_gb,
-            self.smoke.smoke_mut(),
+            &mut self.life.smoke,
+            &mut self.life.colors,
             DENSITY_Z,
         );
         draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
@@ -128,17 +164,50 @@ impl App for TriangleApp {
     }
 }
 
-fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D, z: f32) {
-    let cell_width = 2. / smoke.width() as f32;
-    let cell_height = 2. / smoke.height() as f32;
+impl ParticleLife {
+    pub fn new(
+        width: usize,
+        height: usize,
+        behaviours: Array2D<Behaviour>,
+        colors: Vec<Color>,
+    ) -> Self {
+        let smoke = (0..colors.len())
+            .map(|_| SmokeSim::new(width, height))
+            .collect();
 
-    for i in 0..smoke.width() {
-        let i_frac = (i as f32 / smoke.width() as f32) * 2. - 1.;
-        for j in 0..smoke.height() {
-            let j_frac = (j as f32 / smoke.height() as f32) * 2. - 1.;
+        Self {
+            smoke,
+            behaviours,
+            colors,
+        }
+    }
 
-            let k = smoke[(i, j)];
-            let color = [k; 3];
+    pub fn smoke_mut(&mut self) -> &mut [SmokeSim] {
+        &mut self.smoke
+    }
+}
+
+fn draw_density(builder: &mut GraphicsBuilder, smoke: &[SmokeSim], colors: &[Color], z: f32) {
+    let width = smoke[0].smoke().width();
+    let height = smoke[0].smoke().height();
+
+    let cell_width = 2. / width as f32;
+    let cell_height = 2. / height as f32;
+
+    for i in 0..width {
+        let i_frac = (i as f32 / width as f32) * 2. - 1.;
+        for j in 0..height {
+            let j_frac = (j as f32 / height as f32) * 2. - 1.;
+
+            // Sum colors
+            let color = smoke
+                .iter()
+                .zip(colors)
+                .map(|(smoke, color)| color.into_iter().map(|&c| c * smoke.smoke()[(i, j)]))
+                .fold([0.; 3], |mut acc, x| {
+                    acc.iter_mut().zip(x).for_each(|(acc, x)| *acc += x);
+                    acc
+                });
 
             let mut push = |dx: f32, dy: f32| {
                 let pos = [i_frac + dx, j_frac + dy, z];
@@ -156,7 +225,7 @@ fn draw_density(builder: &mut GraphicsBuilder, smoke: &Array2D, z: f32) {
     }
 }
 
-fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z: f32) {
+fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D<f32>, &Array2D<f32>), z: f32) {
     let cell_width = 2. / u.width() as f32;
     let cell_height = 2. / u.height() as f32;
 
@@ -189,4 +258,105 @@ fn draw_velocity_lines(b: &mut GraphicsBuilder, (u, v): (&Array2D, &Array2D), z:
             b.push_indices(&[tip, tail]);
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Behaviour {
+    /// Magnitude of the default repulsion force
+    pub default_repulse: f32,
+    /// Zero point between default repulsion and particle interaction (0 to 1)
+    pub inter_threshold: f32,
+    /// Interaction peak strength
+    pub inter_strength: f32,
+    /// Maximum distance of particle interaction (0 to 1)
+    pub inter_max_dist: f32,
+}
+
+impl Behaviour {
+    /// Returns the force on this particle
+    fn interact(&self, dist: f32) -> f32 {
+        if dist < self.inter_threshold {
+            let f = dist / self.inter_threshold;
+            (1. - f) * -self.default_repulse
+        } else if dist > self.inter_max_dist {
+            0.0
+        } else {
+            let x = dist - self.inter_threshold;
+            let x = x / (self.inter_max_dist - self.inter_threshold);
+            let x = x * 2. - 1.;
+            let x = 1. - x.abs();
+            x * self.inter_strength
+        }
+    }
+}
+
+/// https://gist.github.com/fairlight1337/4935ae72bcbcc1ba5c72
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
+    let c = v * s; // Chroma
+    let h_prime = (h / 60.0) % 6.0;
+    let x = c * (1.0 - ((h_prime % 2.0) - 1.0).abs());
+    let m = v - c;
+
+    let (mut r, mut g, mut b);
+
+    if 0. <= h_prime && h_prime < 1. {
+        r = c;
+        g = x;
+        b = 0.0;
+    } else if 1.0 <= h_prime && h_prime < 2.0 {
+        r = x;
+        g = c;
+        b = 0.0;
+    } else if 2.0 <= h_prime && h_prime < 3.0 {
+        r = 0.0;
+        g = c;
+        b = x;
+    } else if 3.0 <= h_prime && h_prime < 4.0 {
+        r = 0.0;
+        g = x;
+        b = c;
+    } else if 4.0 <= h_prime && h_prime < 5.0 {
+        r = x;
+        g = 0.0;
+        b = c;
+    } else if 5.0 <= h_prime && h_prime < 6.0 {
+        r = c;
+        g = 0.0;
+        b = x;
+    } else {
+        r = 0.0;
+        g = 0.0;
+        b = 0.0;
+    }
+
+    r += m;
+    g += m;
+    b += m;
+
+    [r, g, b]
+}
+
+impl Default for Behaviour {
+    fn default() -> Self {
+        Self {
+            default_repulse: 10.,
+            inter_threshold: 0.02,
+            inter_strength: 1.,
+            inter_max_dist: 0.2,
+        }
+    }
+}
+
+impl Behaviour {
+    pub fn with_inter_strength(mut self, inter_strength: f32) -> Self {
+        self.inter_strength = inter_strength;
+        self
+    }
+}
+
+fn particle_life(
+    behaviours: &[Behaviour],
+    smoke: &[SmokeSim],
+    (u, v): (&mut Array2D<f32>, &mut Array2D<f32>),
+) {
 }
