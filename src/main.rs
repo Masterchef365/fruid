@@ -65,8 +65,11 @@ impl App for TriangleApp {
         for smoke in life.smoke_mut() {
             for _ in 0..100 {
                 let intensity = 10.;
-                let x = width * (rand::random::<usize>() % width) / width;
-                let y = height * (rand::random::<usize>() % height) / height;
+                let area_width = width - 2;
+                let area_height = height - 2;
+
+                let x = area_width * (rand::random::<usize>() % area_width) / area_width + 1;
+                let y = area_height * (rand::random::<usize>() % area_height) / area_height + 1;
                 smoke.smoke_mut()[(x, y)] = intensity;
             }
         }
