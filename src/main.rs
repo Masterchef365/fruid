@@ -32,7 +32,7 @@ impl App for TriangleApp {
         let mut line_gb = GraphicsBuilder::new();
         let mut tri_gb = GraphicsBuilder::new();
 
-        let w = 250;
+        let w = 400;
         let mut sim = FluidSim::new(w, w);
         let mut smoke = SmokeSim::new(w, w);
 

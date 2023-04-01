@@ -31,21 +31,23 @@ impl FluidSim {
     }
 
     pub fn step(&mut self, dt: f32, overstep: f32, n_iters: u32) {
-        let width = self.width();
+        let u_width = self.read.u.width();
+        let v_width = self.read.v.width();
+        let u_height = self.read.u.height();
 
         // Force incompressibility
         for i in 0..n_iters * 2 {
             let skip = i as usize % 2;
 
             for y_half in [0, 1] {
-                self.write.u.data_mut()[y_half * width..]
-                    .par_chunks_exact_mut(2 * width)
-                    .zip(self.write.v.data_mut()[y_half * width..].par_chunks_exact_mut(2 * width))
+                self.write.u.data_mut()[y_half * u_width..]
+                    .chunks_exact_mut(2 * u_width)
+                    .zip(self.write.v.data_mut()[y_half * v_width..].chunks_exact_mut(2 * v_width))
                     .enumerate()
                     .for_each(|(row_set, (u_rows, v_rows))| {
                         let y = row_set * 2 + y_half;
 
-                        if y == 0 || y + 1 == width {
+                        if y == 0 || y + 1 == u_height {
                             return;
                         }
 
@@ -55,7 +57,7 @@ impl FluidSim {
 
                             let d = (dx + dy) / 4.;
 
-                            let (v_top, v_bottom) = v_rows.split_at_mut(width);
+                            let (v_top, v_bottom) = v_rows.split_at_mut(v_width);
 
                             u_rows[x] = self.read.u[(x, y)] + d;
                             u_rows[x + 1] = self.read.u[(x + 1, y)] - d;
@@ -87,8 +89,7 @@ impl FluidSim {
         }
 
         // Swap the written buffers back into read again
-        std::mem::swap(&mut self.read.u, &mut self.write.u);
-        std::mem::swap(&mut self.read.v, &mut self.write.v);
+        std::mem::swap(&mut self.read, &mut self.write);
     }
 
     pub fn uv(&self) -> (&Array2D, &Array2D) {
@@ -154,11 +155,10 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 }
 
 /// Bilinear interpolation of the given grid at the given coordinates
-#[track_caller]
 fn interp(grid: &Array2D, x: f32, y: f32) -> f32 {
     // Bounds enforcement. No panics!
-    let tl_x = (x.floor() as isize).clamp(0, grid.width() as isize - 1) as usize;
-    let tl_y = (y.floor() as isize).clamp(0, grid.height() as isize - 1) as usize;
+    let tl_x = (x.floor() as isize).clamp(1, grid.width() as isize - 2) as usize;
+    let tl_y = (y.floor() as isize).clamp(1, grid.height() as isize - 2) as usize;
 
     // Get corners
     let tl = grid[(tl_x, tl_y)];
