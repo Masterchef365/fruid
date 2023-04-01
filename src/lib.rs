@@ -45,7 +45,11 @@ impl FluidSim {
                     .for_each(|(row_set, (u_rows, v_rows))| {
                         let y = row_set * 2 + y_half;
 
-                        for x in (1..self.read.u.width() - 2).skip(skip ^ (y % 2)).step_by(2) {
+                        if y == 0 || y + 1 == width {
+                            return;
+                        }
+
+                        for x in (1..self.read.u.width() - 2).skip(skip ^ y_half).step_by(2) {
                             let dx = self.read.u[(x + 1, y)] - self.read.u[(x, y)];
                             let dy = self.read.v[(x, y + 1)] - self.read.v[(x, y)];
 
