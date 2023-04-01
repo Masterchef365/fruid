@@ -31,7 +31,7 @@ impl FluidSim {
 
     pub fn step(&mut self, dt: f32, overstep: f32, n_iters: u32) {
         // Force incompressibility
-        for i in 0..n_iters {
+        for i in 0..n_iters * 2 {
             let skip = i as usize % 2;
             for y in 1..self.read.v.height() - 2 {
                 for x in (1..self.read.u.width() - 2).skip(skip ^ (y % 2)).step_by(2) {
@@ -48,6 +48,7 @@ impl FluidSim {
                 }
             }
 
+            // Note n_iters is multiplied by two to enforce the correct buffer placement
             std::mem::swap(&mut self.read, &mut self.write);
         }
 
