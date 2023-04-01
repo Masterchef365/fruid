@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 pub type Array2D = idek_basics::Array2D<f32>;
 
 pub struct SmokeSim {
@@ -30,22 +31,35 @@ impl FluidSim {
     }
 
     pub fn step(&mut self, dt: f32, overstep: f32, n_iters: u32) {
+        let width = self.width();
+
         // Force incompressibility
         for i in 0..n_iters * 2 {
             let skip = i as usize % 2;
-            for y in 1..self.read.v.height() - 2 {
-                for x in (1..self.read.u.width() - 2).skip(skip ^ (y % 2)).step_by(2) {
-                    let dx = self.read.u[(x + 1, y)] - self.read.u[(x, y)];
-                    let dy = self.read.v[(x, y + 1)] - self.read.v[(x, y)];
 
-                    let d = (dx + dy) / 4.;
+            for y_half in [0, 1] {
+                self.write.u.data_mut()[y_half * width..]
+                    .par_chunks_exact_mut(2 * width)
+                    .zip(self.write.v.data_mut()[y_half * width..].par_chunks_exact_mut(2 * width))
+                    .enumerate()
+                    .for_each(|(row_set, (u_rows, v_rows))| {
+                        let y = row_set * 2 + y_half;
 
-                    self.write.u[(x, y)] = self.read.u[(x, y)] + d;
-                    self.write.u[(x + 1, y)] = self.read.u[(x + 1, y)] - d;
+                        for x in (1..self.read.u.width() - 2).skip(skip ^ (y % 2)).step_by(2) {
+                            let dx = self.read.u[(x + 1, y)] - self.read.u[(x, y)];
+                            let dy = self.read.v[(x, y + 1)] - self.read.v[(x, y)];
 
-                    self.write.v[(x, y)] = self.read.v[(x, y)] + d;
-                    self.write.v[(x, y + 1)] = self.read.v[(x, y + 1)] - d;
-                }
+                            let d = (dx + dy) / 4.;
+
+                            let (v_top, v_bottom) = v_rows.split_at_mut(width);
+
+                            u_rows[x] = self.read.u[(x, y)] + d;
+                            u_rows[x + 1] = self.read.u[(x + 1, y)] - d;
+
+                            v_top[x] = self.read.v[(x, y)] + d;
+                            v_bottom[x] = self.read.v[(x, y + 1)] - d;
+                        }
+                    });
             }
 
             // Note n_iters is multiplied by two to enforce the correct buffer placement

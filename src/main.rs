@@ -89,11 +89,11 @@ impl App for TriangleApp {
         let dt = 1.;
         let overstep = 1.0;
 
-        let pos = (10, center.1);
+        let pos = (20, center.1);
         //let time = 3. * PI / 2.;
         let time = 0.0f32;
-        u[pos] = 45. * (time).cos();
-        v[pos] = 45. * (time).sin();
+        u[pos] = 450. * (time).cos();
+        v[pos] = 450. * (time).sin();
 
         self.sim.step(dt, overstep, 25);
         self.smoke.advect(self.sim.uv(), dt);
