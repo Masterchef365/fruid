@@ -31,21 +31,24 @@ impl FluidSim {
 
     pub fn step(&mut self, dt: f32, overstep: f32, n_iters: u32) {
         // Force incompressibility
-        for _ in 0..n_iters {
+        for i in 0..n_iters {
+            let skip = i as usize % 2;
             for y in 1..self.read.v.height() - 2 {
-                for x in 1..self.read.u.width() - 2 {
+                for x in (1..self.read.u.width() - 2).skip(skip ^ (y % 2)).step_by(2) {
                     let dx = self.read.u[(x + 1, y)] - self.read.u[(x, y)];
                     let dy = self.read.v[(x, y + 1)] - self.read.v[(x, y)];
 
-                    let d = overstep * (dx + dy) / 4.;
+                    let d = (dx + dy) / 4.;
 
-                    self.read.u[(x, y)] += d;
-                    self.read.u[(x + 1, y)] -= d;
+                    self.write.u[(x, y)] = self.read.u[(x, y)] + d;
+                    self.write.u[(x + 1, y)] = self.read.u[(x + 1, y)] - d;
 
-                    self.read.v[(x, y)] += d;
-                    self.read.v[(x, y + 1)] -= d;
+                    self.write.v[(x, y)] = self.read.v[(x, y)] + d;
+                    self.write.v[(x, y + 1)] = self.read.v[(x, y + 1)] - d;
                 }
             }
+
+            std::mem::swap(&mut self.read, &mut self.write);
         }
 
         // Advect velocity (u component)

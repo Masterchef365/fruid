@@ -86,16 +86,16 @@ impl App for TriangleApp {
 
         let (u, v) = self.sim.uv_mut();
 
+        let dt = 2e-0;
+        let overstep = 1.0;
+
         let pos = (x as usize, center.1);
         let pos = center;
         //let time = 3. * PI / 2.;
-        u[pos] = -450. * (time).cos();
-        v[pos] = -450. * (time).sin();
+        u[pos] = 45. * (time).cos();
+        v[pos] = 45. * (time).sin();
 
-        let dt = 1e-2;
-        let overstep = 1.9;
-
-        self.sim.step(dt, overstep, 15);
+        self.sim.step(dt, overstep, 35);
         self.smoke.advect(self.sim.uv(), dt);
 
         // Draw
