@@ -46,7 +46,7 @@ struct ParticleLife {
 impl App for TriangleApp {
     fn init(ctx: &mut Context, _: &mut Platform, _: ()) -> Result<Self> {
         // Set up fluid sim
-        let w = 550;
+        let w = 150;
         //let sim = FluidSim::new(w, w);
 
         let height = w;
@@ -69,8 +69,8 @@ impl App for TriangleApp {
 
         // Place a dot of smoke
         for smoke in life.smoke_mut() {
-            for _ in 0..width {
-                let intensity = 50.;
+            for _ in 0..width / 2 {
+                let intensity = 10.;
 
                 let area_width = width - 4;
                 let area_height = height - 4;
@@ -164,6 +164,7 @@ impl App for TriangleApp {
             .for_each(|(fluid, smoke)| {
                 fluid.step(dt, overstep, 15);
                 smoke.advect(fluid.uv(), dt);
+                sharpen(smoke.smoke_mut());
             });
 
         /*
@@ -205,7 +206,7 @@ impl App for TriangleApp {
         );
 
         let name = format!("{:04}.ppm", self.frame_count);
-        draw_density_image(&name, &mut self.life.smoke, &mut self.life.colors);
+        //draw_density_image(&name, &mut self.life.smoke, &mut self.life.colors);
         //draw_velocity_lines(&mut self.line_gb, self.sim.uv(), VELOCITY_Z);
 
         ctx.update_vertices(self.tri_verts, &self.tri_gb.vertices)?;
@@ -456,7 +457,7 @@ fn calc_force(
         .collect();
     let circles = Array2D::from_array(width, circles);
     */
-    let radius = behaviours[(0,0)].inter_max_dist as i32;
+    let radius = behaviours[(0, 0)].inter_max_dist as i32;
     let circle: Vec<Coord<i32>> = plot_fill_circle(radius).collect();
 
     // For each possible behaviour (interaction)...
@@ -596,4 +597,27 @@ fn draw_density_image(path: &str, smoke: &[SmokeSim], colors: &[Color]) {
     }
 
     write_ppm(path, &pixel_data, width).unwrap();
+}
+
+fn sharpen(arr: &mut Array2D<f32>) {
+    let mut backbuf = arr.clone();
+    for y in 2..arr.height() - 2 {
+        for x in 2..arr.width() - 2 {
+            let sharp = arr[(x, y)] * 4.
+                - arr[(x - 1, y)]
+                - arr[(x + 1, y)]
+                - arr[(x, y - 1)]
+                - arr[(x, y + 1)];
+
+            let sharp = sharp.clamp(0., 10.);
+
+            backbuf[(x, y)] = lerp(arr[(x, y)], sharp, 0.05);
+        }
+    }
+
+    *arr = backbuf;
+}
+
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a * (1. - t) + b * t
 }
