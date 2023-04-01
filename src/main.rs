@@ -38,8 +38,8 @@ impl App for TriangleApp {
 
         let height = sim.height();
         let width = sim.width();
-        let intensity = 1e3;
-        smoke.smoke_mut()[(width / 2, height / 3)] = intensity;
+        let intensity = 1e4;
+        smoke.smoke_mut()[(20, height / 4)] = intensity;
 
         //sim.step(0.1, 0.0, 10);
 
@@ -89,13 +89,13 @@ impl App for TriangleApp {
         let dt = 1.;
         let overstep = 1.0;
 
-        let pos = (x as usize, center.1);
-        let pos = center;
+        let pos = (10, center.1);
         //let time = 3. * PI / 2.;
+        let time = 0.0f32;
         u[pos] = 45. * (time).cos();
         v[pos] = 45. * (time).sin();
 
-        self.sim.step(dt, overstep, 15);
+        self.sim.step(dt, overstep, 25);
         self.smoke.advect(self.sim.uv(), dt);
 
         // Draw
